@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2f4f7">
+  <title>Loro · Observación del entorno</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='none' stroke='%23141414' stroke-width='2' d='M7 25V12a9 9 0 0 1 18 0v6h-8l-5 7zM25 10h5l-5 6M12 25v5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+  <script src="/sensors.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Proyecto Loro, inicio"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 25V12a9 9 0 0 1 18 0v6h-8l-5 7z"/><path d="M25 10h5l-5 6M17 13h.1M12 25v5"/></svg><span>Loro</span></a>
+    <span class="workspace">Estación de observación</span>
+    <span class="connection" id="backend-state">Conectando al servidor…</span>
+  </header>
+  <main>
+    <div class="heading">
+      <div><p class="eyebrow">ESP32 · Sensores y cámara</p><h1>Observación del entorno</h1><p class="intro">Lecturas del ambiente y fotografías bajo demanda.</p></div>
+      <button id="capture" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4v15H4V5z"/><circle cx="12" cy="12" r="4"/></svg><span>Tomar foto</span></button>
+    </div>
+    <section class="sensors" aria-label="Sensores del entorno">
+      <div class="sensors-heading"><h2>Sensores del entorno</h2><span id="sensors-state" role="status">Consultando el ESP32…</span></div>
+      <div class="sensor-values">
+        <div><h3>Temperatura</h3><p><span id="temperature-value">—</span> <span class="unit">°C</span></p></div>
+        <div><h3>Humedad relativa</h3><p><span id="humidity-value">—</span> <span class="unit">%</span></p></div>
+        <div><h3>Sonido</h3><p id="sound-value" class="sound-value">—</p></div>
+      </div>
+      <div class="sensors-footer"><span id="sensors-note">Esperando la primera lectura.</span><span id="sensors-updated">Actualización automática cada 3 s</span></div>
+    </section>
+    <div class="layout">
+      <section class="viewer" aria-label="Fotografía de la cámara" aria-busy="false">
+        <div class="viewer-bar"><span>Vista de la cámara</span><span id="image-state">Sin captura</span></div>
+        <div class="photo-stage">
+          <div id="empty"><svg viewBox="0 0 80 64" aria-hidden="true"><path d="M8 14h17l6-8h18l6 8h17v44H8z"/><circle cx="40" cy="35" r="13"/><path d="M60 23h4"/></svg><h2>La próxima foto empieza aquí</h2><p>Pulsa “Tomar foto” para ver lo que está frente a la cámara.</p></div>
+          <img id="photo" alt="Última fotografía capturada por la ESP32-CAM" hidden>
+          <div id="loading" hidden><span>Solicitando una nueva foto…</span></div>
+        </div>
+        <div class="viewer-footer"><span id="photo-caption">Las capturas se realizan únicamente cuando las solicitas.</span><a id="download" download="loro-captura.jpg" hidden>Descargar foto <span aria-hidden="true">↓</span></a></div>
+      </section>
+      <aside>
+        <section class="info"><h2>Esta captura</h2><dl><div><dt>Última foto</dt><dd id="captured-at">Todavía no hay una foto</dd></div><div><dt>Resolución</dt><dd id="resolution">—</dd></div><div><dt>Tamaño</dt><dd id="file-size">—</dd></div></dl></section>
+        <section class="info"><h2>Dispositivo</h2><dl><div><dt>Modelo</dt><dd>AI Thinker · OV2640</dd></div><div><dt>Red configurada</dt><dd>linksys</dd></div><div><dt>Cámara</dt><dd id="camera-state">Sin comprobar</dd></div></dl><p class="hint">La conexión con la cámara se comprueba al solicitar una foto.</p></section>
+      </aside>
+    </div>
+    <p id="message" class="message" role="status" aria-live="polite">Listo para solicitar una captura.</p>
+    <footer>Proyecto Loro<span>Captura bajo demanda · Sin grabación automática</span></footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,12 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.taste-skill/
+.artifacts/
+.playwright-cli/
+output/
+.env
+.env.*
+!.env.example
+*.log
