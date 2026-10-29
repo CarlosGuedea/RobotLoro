@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe6ff"/><stop offset="1" stop-color="#eaf7ff"/></linearGradient>
+    <linearGradient id="light" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6d6" stop-opacity=".7"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="#efe6d6"/>
+  <rect y="250" width="640" height="110" fill="#c9a77c"/>
+  <rect x="60" y="40" width="200" height="150" rx="6" fill="#8a6a48"/>
+  <rect x="70" y="50" width="180" height="130" fill="url(#sky)"/>
+  <rect x="157" y="50" width="6" height="130" fill="#8a6a48"/>
+  <circle cx="110" cy="90" r="18" fill="#fff" opacity=".8"/>
+  <path d="M70 180 L250 180 L430 330 L120 330 Z" fill="url(#light)"/>
+  <rect x="380" y="60" width="200" height="180" fill="#9c7a55"/>
+  <g fill="#3f7d4b"><rect x="392" y="74" width="16" height="44"/><rect x="452" y="134" width="14" height="44"/></g>
+  <g fill="#d98a00"><rect x="410" y="78" width="14" height="40"/><rect x="500" y="138" width="16" height="40"/></g>
+  <g fill="#3c6aa8"><rect x="426" y="72" width="12" height="46"/><rect x="520" y="134" width="12" height="44"/></g>
+  <g fill="#b9473f"><rect x="440" y="80" width="16" height="38"/><rect x="470" y="140" width="14" height="38"/></g>
+  <rect x="380" y="118" width="200" height="8" fill="#7a5c3d"/><rect x="380" y="178" width="200" height="8" fill="#7a5c3d"/>
+  <rect x="150" y="226" width="300" height="16" rx="4" fill="#6b4b2e"/>
+  <rect x="170" y="242" width="12" height="88" fill="#5a3e25"/><rect x="418" y="242" width="12" height="88" fill="#5a3e25"/>
+  <rect x="220" y="204" width="90" height="22" rx="3" fill="#2b3a33"/><rect x="226" y="208" width="78" height="14" fill="#67e8f9" opacity=".5"/>
+  <rect x="330" y="214" width="50" height="12" rx="2" fill="#f5f0e6"/>
+  <path d="M390 226 L398 186 L412 186" stroke="#2b3a33" stroke-width="4" fill="none"/><path d="M404 178 h28 l-8 14 h-12 z" fill="#ffc629"/>
+  <rect x="470" y="250" width="70" height="10" rx="3" fill="#2e9a41"/><rect x="476" y="260" width="8" height="70" fill="#1f7e33"/><rect x="526" y="260" width="8" height="70" fill="#1f7e33"/><rect x="470" y="196" width="10" height="56" rx="3" fill="#2e9a41"/>
+</svg>

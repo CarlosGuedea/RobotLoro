@@ -1,0 +1,212 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/plus-jakarta-sans';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Paleta de marca: verde institucional UdeC + colores del loro (StudyBot).
+ * Si el área de comunicación les entrega los códigos oficiales (Pantone/HEX),
+ * solo hay que actualizar las escalas `loro` y `pico` en este bloque.
+ */
+@theme {
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+  /* Verde loro / UdeC */
+  --color-loro-50: #eef9ef;
+  --color-loro-100: #d6f0d9;
+  --color-loro-200: #addfb4;
+  --color-loro-300: #7fcb89;
+  --color-loro-400: #4fb45e;
+  --color-loro-500: #2e9a41;
+  --color-loro-600: #1f7e33;
+  --color-loro-700: #18652b;
+  --color-loro-800: #144f24;
+  --color-loro-900: #0f3b1c;
+  --color-loro-950: #072212;
+
+  /* Amarillo del pico (acento dorado) */
+  --color-pico-100: #fff3cc;
+  --color-pico-200: #ffe699;
+  --color-pico-300: #ffd866;
+  --color-pico-400: #ffc629;
+  --color-pico-500: #f5a800;
+  --color-pico-600: #d98a00;
+  --color-pico-700: #a86400;
+
+  /* Crema de la cara */
+  --color-crema: #fff7e8;
+
+  /* Tokens semánticos (estilo shadcn/ui) */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --animate-blink: blink 5s infinite;
+  --animate-bob: bob 2.4s ease-in-out infinite;
+  --animate-scan: scan 1.6s ease-in-out infinite alternate;
+  --animate-flash: flash 0.8s ease-out forwards;
+  --animate-develop: develop 0.9s ease-out;
+
+  /* La foto "se revela": de borrosa y pequeña a nítida */
+  @keyframes develop {
+    from {
+      opacity: 0;
+      filter: blur(12px) saturate(0.2);
+      transform: scale(0.92);
+    }
+    to {
+      opacity: 1;
+      filter: none;
+      transform: none;
+    }
+  }
+
+  @keyframes scan {
+    from {
+      top: 0%;
+    }
+    to {
+      top: 100%;
+    }
+  }
+
+  @keyframes flash {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes blink {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    95% {
+      transform: scaleY(0.1);
+    }
+  }
+
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+}
+
+:root {
+  --background: #f5f8f3;
+  --foreground: #10261a;
+  --card: #ffffff;
+  --card-foreground: #10261a;
+  --muted: #edf2ea;
+  --muted-foreground: #5a6b5f;
+  --border: #dce6d8;
+  --input: #d3dfcf;
+  --ring: var(--color-loro-500);
+  --primary: var(--color-loro-700);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-loro-50);
+  --secondary-foreground: var(--color-loro-800);
+  --accent: var(--color-pico-400);
+  --accent-foreground: #3d2a00;
+  --success: var(--color-loro-500);
+  --success-foreground: #ffffff;
+  --warning: #e8890c;
+  --warning-foreground: #ffffff;
+  --destructive: #d64545;
+  --destructive-foreground: #ffffff;
+  --sidebar: var(--color-loro-900);
+  --sidebar-foreground: #e6f3e8;
+  --sidebar-muted: #9fc4a6;
+  --sidebar-active: var(--color-loro-700);
+}
+
+.dark {
+  --background: #0b1610;
+  --foreground: #e6f0e8;
+  --card: #122119;
+  --card-foreground: #e6f0e8;
+  --muted: #1a2c22;
+  --muted-foreground: #93a99a;
+  --border: #23392c;
+  --input: #2a4334;
+  --ring: var(--color-loro-400);
+  --primary: var(--color-loro-500);
+  --primary-foreground: #ffffff;
+  --secondary: #183022;
+  --secondary-foreground: var(--color-loro-200);
+  --accent: var(--color-pico-400);
+  --accent-foreground: #3d2a00;
+  --success: var(--color-loro-400);
+  --success-foreground: #072212;
+  --warning: #f2a23a;
+  --warning-foreground: #2b1700;
+  --destructive: #e46060;
+  --destructive-foreground: #ffffff;
+  --sidebar: #08120c;
+  --sidebar-foreground: #e6f3e8;
+  --sidebar-muted: #7fa58a;
+  --sidebar-active: var(--color-loro-800);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  /* Inputs con <datalist>: se ven como campo de texto, no como selector */
+  input[list]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
+}
