@@ -35,7 +35,23 @@ def fetch_readings(base_url, timeout=3):
     for field in ("sample_age_ms", "uptime_ms", "sound_activity_count"):
         if type(value.get(field)) is not int or not 0 <= value[field] <= 0xFFFFFFFF:
             raise ValueError(f"{field} inválido.")
-    if type(value.get("sound_level")) is not int or value["sound_level"] not in (0, 1):
+    microphone = value.get("sound_source") == "inmp441"
+    if microphone:
+        if type(value.get("sound_ok")) is not bool or type(value.get("sound_clipped")) is not bool:
+            raise ValueError("Estado de micrófono inválido.")
+        if type(value.get("sound_age_ms")) is not int or not 0 <= value["sound_age_ms"] <= 0xFFFFFFFF:
+            raise ValueError("Antigüedad del audio inválida.")
+        for field, low, high in (("sound_rms", 0, 1), ("sound_dbfs", -120, 0), ("sound_peak_dbfs", -120, 0),
+                                  ("sound_threshold_dbfs", -120, 0)):
+            number = value.get(field)
+            if not value["sound_ok"] and field != "sound_threshold_dbfs":
+                if number is not None:
+                    raise ValueError("Un fallo del micrófono debe incluir niveles nulos.")
+            elif type(number) not in (int, float) or not math.isfinite(number) or not low <= number <= high:
+                raise ValueError(f"{field} inválido.")
+        if value.get("sound_level") is not None:
+            raise ValueError("INMP441 no tiene salida digital de umbral.")
+    elif type(value.get("sound_level")) is not int or value["sound_level"] not in (0, 1):
         raise ValueError("Nivel digital inválido.")
     for field, low, high in (("temperature_c", -40, 80), ("humidity_pct", 0, 100)):
         number = value.get(field)
@@ -45,4 +61,9 @@ def fetch_readings(base_url, timeout=3):
         elif number is not None:
             raise ValueError("Un fallo DHT debe incluir valores nulos.")
     fields = ("temperature_c", "humidity_pct", "dht_ok", "sound_detected", "sound_level", "sample_age_ms", "uptime_ms", "sound_activity_count")
-    return {field: value[field] for field in fields}
+    result = {field: value[field] for field in fields}
+    if microphone:
+        for field in ("sound_source", "sound_ok", "sound_rms", "sound_dbfs", "sound_peak_dbfs",
+                      "sound_threshold_dbfs", "sound_clipped", "sound_age_ms"):
+            result[field] = value[field]
+    return result

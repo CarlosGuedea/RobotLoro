@@ -1,6 +1,6 @@
 # Proyecto Loro
 
-Captura de fotografías bajo demanda desde una **ESP32-CAM AI Thinker con OV2640**, con frontend web y backend Python. Un segundo ESP32 publica temperatura, humedad y detección digital de sonido por Wi-Fi; la misma página muestra las lecturas.
+Captura de fotografías bajo demanda desde una **ESP32-CAM AI Thinker con OV2640**, con frontend web y backend Python. Un segundo ESP32 publica temperatura, humedad y nivel de audio del INMP441 por Wi-Fi; la misma página muestra las lecturas.
 
 ```text
 frontend/                       Página web: HTML, CSS, JavaScript y fuente local
@@ -10,7 +10,7 @@ backend/                        Receptor de imágenes y servidor HTTP Python
   tests/                        Pruebas HTTP y cámara simulada
 firmware/
   esp32cam_web/                 Sketch de la ESP32-CAM
-  esp32_sensores/               Sketch existente: DHT22 y sonido digital
+  esp32_sensores/               Sketch existente: DHT22 e INMP441 I²S
 docs/                           Diseño y plan
 ```
 
@@ -86,7 +86,7 @@ Abre entonces `http://<IP-del-ordenador>:8000`. El ordenador debe tener acceso a
 
 ## ESP32 de sensores
 
-Carga `firmware/esp32_sensores/esp32_sensores.ino` en la placa **ESP32 Dev Module**, a 115200 baudios. DHT22 DATA en GPIO27; sensor de sonido OUT en GPIO26. El firmware se conecta a **linksys**, sin contraseña, y anuncia `esp32sensores.local`. Esta es una placa diferente a la ESP32-CAM; identifica el puerto antes de cargar.
+Carga `firmware/esp32_sensores/esp32_sensores.ino` en la placa **ESP32 Dev Module**, a 115200 baudios. DHT22 DATA en GPIO27; INMP441 SCK en GPIO26, WS en GPIO25, SD en GPIO33, L/R a GND y VDD a 3V3. En el montaje verificado con Arduino-ESP32 2.0.17 se selecciona el slot derecho del driver (`MICROPHONE_LEFT_CHANNEL=false`). Consulta `firmware/esp32_sensores/README.md` para el formato PCM, niveles RMS/dBFS y configuración del umbral. El firmware se conecta a **linksys**, sin contraseña, y anuncia `esp32sensores.local`. Esta es una placa diferente a la ESP32-CAM; identifica el puerto antes de cargar.
 
 Python consulta `http://esp32sensores.local/readings` y el frontend actualiza sus valores cada tres segundos. Si necesitas usar una IP concreta:
 
@@ -96,7 +96,7 @@ python3 backend/server.py --sensors-url http://192.168.1.130
 
 Sustituye esa IP de ejemplo por la que aparezca en el monitor serie. Puedes combinar `--sensors-url` y `--camera-url`, o usar `SENSORS_URL` y `CAMERA_URL`.
 
-Un DHT22 desconectado se muestra con guiones para temperatura/humedad, manteniendo disponible el sonido. Si el ESP32 no responde o la muestra tiene más de diez segundos, no se presentan los datos anteriores como actuales. El sonido indica si se observó el nivel digital activo durante la ventana de muestreo; no mide decibeles y puede perder pulsos breves durante operaciones de lectura o red.
+Un DHT22 desconectado se muestra con guiones para temperatura/humedad, manteniendo disponible el audio. Un INMP441 sin señal no impide mostrar el DHT22. Si el ESP32 no responde o la muestra tiene más de diez segundos, no se presentan los datos anteriores como actuales. El INMP441 se muestrea en una tarea independiente y muestra niveles RMS en dBFS, con umbral inicial de -35 dBFS. No son dB SPL calibrados. Solo se transmiten estadísticas de audio, sin grabaciones.
 
 Solo se admite una captura simultánea; otras reciben 409. Cámara inaccesible, error del sensor o JPEG inválido: 502 con mensaje JSON. Tamaño máximo: 2 MiB; espera de conexión/lectura configurable con `--timeout` (8 segundos por defecto). La fecha es la de recepción en el backend, no un reloj sincronizado en la cámara.
 

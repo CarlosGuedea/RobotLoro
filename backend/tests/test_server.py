@@ -176,6 +176,23 @@ class CaptureTests(unittest.TestCase):
         self.camera.reply = (200, "application/json", b'{"temperature_c":')
         self.assertEqual(self.fetch("/api/sensors")[0], 502)
 
+    def test_inmp441_metrics_are_received(self):
+        self.sensor_reply(sound_source="inmp441", sound_level=None, sound_ok=True,
+                          sound_rms=0.01, sound_dbfs=-40.0, sound_peak_dbfs=-30.0,
+                          sound_threshold_dbfs=-35.0, sound_clipped=False, sound_age_ms=100)
+        status, _, data = self.fetch("/api/sensors")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(data)["readings"]["sound_dbfs"], -40.0)
+
+    def test_inmp441_failure_preserves_dht(self):
+        self.sensor_reply(sound_source="inmp441", sound_level=None, sound_ok=False,
+                          sound_rms=None, sound_dbfs=None, sound_peak_dbfs=None,
+                          sound_threshold_dbfs=-35.0, sound_clipped=False, sound_age_ms=100)
+        status, _, data = self.fetch("/api/sensors")
+        self.assertEqual(status, 200)
+        self.assertFalse(json.loads(data)["readings"]["sound_ok"])
+        self.assertEqual(json.loads(data)["readings"]["temperature_c"], 24.5)
+
 
 if __name__ == "__main__":
     unittest.main()

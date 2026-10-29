@@ -38,6 +38,21 @@ test('reports sound even when its positive sample was overwritten between polls'
   assert.equal(app.select('sound-value').textContent, 'Sin detección');
 });
 
+test('keeps a detected event visible through microphone failure and recovery', async () => {
+  const app = await mount();
+  await app.next(reading({sound_source: 'inmp441', sound_ok: true, sound_dbfs: -40,
+    sound_rms: 0.01, sound_peak_dbfs: -40, sound_threshold_dbfs: -35,
+    sound_clipped: false, sound_age_ms: 50, sound_activity_count: 1}));
+  await app.next(reading({sound_source: 'inmp441', sound_ok: false, sound_dbfs: null,
+    sound_rms: null, sound_peak_dbfs: null, sound_threshold_dbfs: -35,
+    sound_clipped: false, sound_age_ms: 50, sound_activity_count: 2, uptime_ms: 15000}));
+  assert.equal(app.select('sound-value').textContent, 'Detectado antes del fallo');
+  await app.next(reading({sound_source: 'inmp441', sound_ok: true, sound_dbfs: -45,
+    sound_rms: 0.005, sound_peak_dbfs: -45, sound_threshold_dbfs: -35,
+    sound_clipped: false, sound_age_ms: 50, sound_activity_count: 2, uptime_ms: 20000}));
+  assert.equal(app.select('sound-value').textContent, 'Sin detección');
+});
+
 test('DHT failure clears only temperature and humidity', async () => {
   const app = await mount();
   await app.next(reading({dht_ok: false, temperature_c: null, humidity_pct: null, sound_detected: true}));
@@ -62,4 +77,16 @@ test('reboot does not invent a sound event from a reset counter', async () => {
   const app = await mount();
   await app.next(reading({sound_activity_count: 0, uptime_ms: 2500}));
   assert.equal(app.select('sound-value').textContent, 'Sin detección');
+});
+
+test('INMP441 shows dBFS and mic failure leaves DHT visible', async () => {
+  const app = await mount();
+  await app.next(reading({sound_source: 'inmp441', sound_ok: true, sound_dbfs: -40,
+    sound_threshold_dbfs: -35, sound_clipped: false, sound_age_ms: 50}));
+  assert.equal(app.select('audio-dbfs').textContent, '-40.0');
+  await app.next(reading({sound_source: 'inmp441', sound_ok: false, sound_dbfs: null,
+    sound_threshold_dbfs: -35, sound_clipped: false, sound_age_ms: 50}));
+  assert.equal(app.select('audio-dbfs').textContent, '—');
+  assert.equal(app.select('temperature-value').textContent, '25.0');
+  assert.equal(app.select('sound-value').textContent, 'Sin señal de audio');
 });
