@@ -1,17 +1,17 @@
-import { Camera, Cpu, Mic, Monitor, Thermometer, type LucideIcon } from 'lucide-react'
+import { BrainCircuit, Camera, Cpu, Mic, Thermometer, type LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatRelative } from '@/lib/format'
-import type { ComponentHealth, DeviceStatus } from '@/types/domain'
+import type { ComponentHealth, DeviceComponent } from '@/types/domain'
 import { useDeviceStatus } from '../hooks/useDeviceStatus'
 
-const COMPONENTS: { key: keyof DeviceStatus['components']; label: string; icon: LucideIcon }[] = [
-  { key: 'camera', label: 'Cámara OV2640', icon: Camera },
-  { key: 'temperature', label: 'Sensor de temperatura', icon: Thermometer },
-  { key: 'microphone', label: 'Módulo de audio', icon: Mic },
-  { key: 'display', label: 'Pantalla OLED', icon: Monitor },
-]
+const ICONS: Record<DeviceComponent['key'], LucideIcon> = {
+  camera: Camera,
+  temperature: Thermometer,
+  microphone: Mic,
+  model: BrainCircuit,
+}
 
 const HEALTH: Record<
   ComponentHealth,
@@ -23,7 +23,7 @@ const HEALTH: Record<
 }
 
 export function DeviceCard() {
-  const { data, isPending } = useDeviceStatus()
+  const { data, isPending, isError } = useDeviceStatus()
 
   return (
     <Card>
@@ -32,35 +32,34 @@ export function DeviceCard() {
           <Cpu className="size-4 text-primary" /> Dispositivo
         </CardTitle>
         <CardDescription>
-          {data ? `${data.name} · visto ${formatRelative(data.lastSeen)}` : 'Consultando estado…'}
+          {isError
+            ? 'El backend no responde. ¿Está iniciado server.py?'
+            : data
+              ? `${data.name} · ${data.lastSeen ? `sensores ${formatRelative(data.lastSeen)}` : 'sin lecturas de sensores'}`
+              : 'Consultando estado…'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {isPending
-          ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-6 w-full" />)
-          : COMPONENTS.map(({ key, label, icon: Icon }) => {
-              const health = HEALTH[data?.components[key] ?? 'error']
+          ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-9 w-full" />)
+          : data?.components.map(({ key, label, health, detail }) => {
+              const Icon = ICONS[key]
+              const badge = HEALTH[health]
               return (
-                <div key={key} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Icon className="size-4 text-muted-foreground" /> {label}
+                <div key={key} className="flex items-start justify-between gap-2 text-sm">
+                  <span className="flex min-w-0 gap-2">
+                    <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0">
+                      <span className="block">{label}</span>
+                      <span className="block truncate text-xs text-muted-foreground" title={detail}>
+                        {detail}
+                      </span>
+                    </span>
                   </span>
-                  <Badge variant={health.variant}>{health.label}</Badge>
+                  <Badge variant={badge.variant}>{badge.label}</Badge>
                 </div>
               )
             })}
-        {data && (
-          <dl className="grid grid-cols-2 gap-2 border-t pt-3 text-xs text-muted-foreground">
-            <div>
-              <dt>IP</dt>
-              <dd className="font-mono text-foreground">{data.ip}</dd>
-            </div>
-            <div>
-              <dt>Firmware</dt>
-              <dd className="font-mono text-foreground">v{data.firmware}</dd>
-            </div>
-          </dl>
-        )}
       </CardContent>
     </Card>
   )

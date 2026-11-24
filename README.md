@@ -1,29 +1,40 @@
-# Proyecto Loro
+# Proyecto Loro · StudyBot
 
-Captura de fotografías bajo demanda desde una **ESP32-CAM AI Thinker con OV2640**, con frontend web y backend Python. Un segundo ESP32 publica temperatura, humedad y nivel de audio del INMP441 por Wi-Fi; la misma página muestra las lecturas.
+El loro dice si un lugar es **apto** o **no apto** para estudiar. Una **ESP32-CAM AI Thinker
+(OV2640)** toma la foto, un segundo ESP32 publica temperatura, humedad y nivel de ruido en dBFS
+(micrófono **INMP441** I²S), y el modelo **LorBot** (CLIP + SVM, en `LorBot_API/`) da el
+veredicto. El dashboard web muestra sensores en vivo, evalúa lugares y guarda el historial.
 
 ```text
-frontend/                       Página web: HTML, CSS, JavaScript y fuente local
-backend/                        Receptor de imágenes y servidor HTTP Python
-  server.py
-  requirements.txt
-  tests/                        Pruebas HTTP y cámara simulada
+frontend_new/                   Dashboard (React + Vite). Se compila a frontend_new/dist
+backend/                        Servidor Python: cámara, sensores, LorBot y API del dashboard
+  server.py                     Rutas HTTP y orquestación de la evaluación
+  lorbot.py                     Cliente de la API LorBot (POST /predict)
+  store.py                      Historial en data/evaluations.json + data/photos/
+  sensors.py                    Validación de las muestras del ESP32 de sensores
+  tests/                        Pruebas HTTP y hardware simulado
 firmware/
   esp32cam_web/                 Sketch de la ESP32-CAM
-  esp32_sensores/               Sketch existente: DHT22 e INMP441 I²S
+  esp32_sensores/               Sketch: DHT22 e INMP441 I²S (ruido en dBFS)
+packaging/                      Lanzador y empaquetado como ejecutable (Windows/Linux)
+frontend/                       Página anterior (HTML/JS). Ya no la sirve el backend
 docs/                           Diseño y plan
 ```
 
 ## Flujo
 
 ```text
-Botón «Tomar foto» → POST /api/capture en Python
-                  → GET /capture en ESP32-CAM
-                  ← JPEG de la OV2640
-                  ← Fotografía mostrada en el navegador
+Dashboard «Evaluar lugar» → POST /api/evaluations (nombre, ruido en dBFS, temperatura opcional)
+  1. backend lee el ESP32 de sensores (temperatura si no se escribió)
+  2. backend pide GET /capture a la ESP32-CAM (o usa la foto subida)
+  3. backend envía foto + temperatura + ruido a LorBot POST /predict
+  ← «Apto» / «No apto», guardado con su foto en data/
 ```
 
-No se solicitan fotografías automáticamente. La captura anterior se conserva si un nuevo intento falla. Python conserva solo la última imagen en memoria; se pierde al reiniciar. El botón **Descargar foto** permite guardar una copia en el navegador.
+El modelo necesita el ruido en **dBFS**. Lo mide el **INMP441** del ESP32 de sensores
+(`sound_dbfs` en `/readings`, RMS de ventanas de 100 ms) y el backend lo usa si no se escribe
+otro valor. Si el micrófono falla o la placa tiene el detector digital anterior (KY-038, solo
+sí/no), el dashboard lo mide con el micrófono del dispositivo (botón 🎤) o se escribe a mano.
 
 ## 1. Cargar la ESP32-CAM
 
@@ -46,18 +57,39 @@ El firmware ofrece:
 
 Puedes abrir `http://esp32cam.local/` si tu red permite mDNS; si no resuelve, utiliza la IP del monitor serie. Con PSRAM se configura 800 × 600; sin PSRAM, 320 × 240. El flash queda apagado.
 
-## 2. Iniciar backend y frontend
+## 2. Iniciar el producto
 
-En una terminal, desde la carpeta raíz del proyecto:
+**Versión empaquetada** (sin instalar Python ni Node): ver [`packaging/README.md`](packaging/README.md).
+Un solo ejecutable arranca modelo, backend y dashboard.
+
+**Desde el código:**
+
+Se necesitan dos procesos, cada uno en su terminal:
+
+1. **API LorBot** (modelo): abre `LorBot_API/Iniciar.command` y espera a que escuche en
+   `http://127.0.0.1:5055`. La primera vez descarga CLIP.
+2. **Backend + dashboard**: desde esta carpeta,
+
+```bash
+./Iniciar.command
+```
+
+Crea `.venv`, instala dependencias, compila el dashboard si falta `frontend_new/dist` (necesita
+Node.js) e inicia el servidor. Abre **[http://localhost:8000](http://localhost:8000)**.
+
+Equivalente manual:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r backend/requirements.txt
-python3 backend/server.py
+.venv/bin/python -m pip install -r backend/requirements.txt
+npm --prefix frontend_new ci && npm --prefix frontend_new run build
+.venv/bin/python backend/server.py
 ```
 
-Abre **[http://localhost:8000](http://localhost:8000)** y pulsa **Tomar foto**. El backend sirve los archivos de `frontend/`; no abras `index.html` con doble clic ni necesitas un servidor adicional de frontend.
+Tras cambiar el dashboard, vuelve a ejecutar `npm --prefix frontend_new run build`. Para
+desarrollarlo con recarga en caliente usa `npm --prefix frontend_new run dev`
+(http://localhost:5173); Vite reenvía `/api` al backend (`VITE_PROXY_TARGET`, por defecto
+`http://127.0.0.1:8000`).
 
 Si `esp32cam.local` no resuelve, inicia Python con la IP mostrada en el monitor serie, por ejemplo:
 
@@ -73,16 +105,37 @@ Para abrir la interfaz desde otro dispositivo de la misma red:
 python3 backend/server.py --host 0.0.0.0 --camera-url http://192.168.1.50
 ```
 
-Abre entonces `http://<IP-del-ordenador>:8000`. El ordenador debe tener acceso a la cámara en `linksys`; si el router aísla clientes, ninguna captura desde Python podrá llegar a ella.
+La consola muestra la dirección para otros equipos (`http://<IP-del-ordenador>:8000`) y el dashboard la ofrece con código QR en **Configuración → Abrir desde el celular**. El ejecutable empaquetado ya se abre así por defecto. El ordenador debe tener acceso a la cámara en `linksys`; si el router aísla clientes, ninguna captura desde Python podrá llegar a ella. Desde otra IP el navegador no permite usar el micrófono (solo `localhost` o HTTPS): el ruido lo mide el INMP441 o se escribe a mano.
+
+Las direcciones de la cámara y los sensores también se cambian desde el dashboard, en **Configuración**; se guardan en `data/settings.json` y tienen prioridad sobre `--camera-url`/`--sensors-url`.
+
+Si la API LorBot corre en otra máquina o puerto: `--api-url http://192.168.1.20:5055` (o `LORBOT_URL`). El historial se guarda en `data/` (`--data-dir` o `LORO_DATA_DIR` para cambiarlo).
 
 ## API Python
+
+Rutas del dashboard (detalle y ejemplos en `frontend_new/README.md`):
+
+| Ruta | Respuesta |
+| --- | --- |
+| `GET /api/device/status` | Estado de cámara, DHT22, sensor de sonido y API LorBot |
+| `GET /api/sensors/latest` | Última lectura de sensores |
+| `GET /api/sensors/history?limit=30` | Promedio por minuto de la última hora (en memoria) |
+| `POST /api/evaluations` | Lee sensores, toma la foto, consulta LorBot y guarda el resultado |
+| `GET /api/evaluations?placeId=` · `GET /api/places` | Historial y lugares probados |
+| `GET /api/photos/<id>.jpg` | Foto de una evaluación |
+| `GET` · `PUT /api/settings` | Direcciones de la cámara y los sensores (`cameraUrl`, `sensorsUrl`) |
+| `GET /api/network` | Si el dashboard está abierto a la red y su dirección (`shared`, `url`) |
+
+Rutas originales, se conservan:
 
 | Ruta | Respuesta |
 | --- | --- |
 | `POST /api/capture` | Solicita y devuelve JPEG; fecha de recepción en `X-Captured-At` |
 | `GET /api/latest.jpg` | Última fotografía, sin solicitar otra; 404 si no existe |
-| `GET /api/status` | Dirección configurada, cantidad de capturas y fecha de la última |
-| `GET /api/sensors` | Consulta y devuelve temperatura, humedad y sonido del ESP32 de sensores |
+| `GET /api/status` | Direcciones configuradas, cantidad de capturas y fecha de la última |
+| `GET /api/sensors` | Consulta y devuelve la muestra cruda del ESP32 de sensores |
+
+Cualquier otra ruta devuelve el dashboard compilado.
 
 ## ESP32 de sensores
 
@@ -100,7 +153,7 @@ Un DHT22 desconectado se muestra con guiones para temperatura/humedad, mantenien
 
 Solo se admite una captura simultánea; otras reciben 409. Cámara inaccesible, error del sensor o JPEG inválido: 502 con mensaje JSON. Tamaño máximo: 2 MiB; espera de conexión/lectura configurable con `--timeout` (8 segundos por defecto). La fecha es la de recepción en el backend, no un reloj sincronizado en la cámara.
 
-Esta implementación es para desarrollo en una red local de confianza: HTTP sin autenticación y sin publicación en Internet. No incluye grabación, transmisión continua, almacenamiento histórico ni análisis de IA.
+Esta implementación es para una red local de confianza: HTTP sin autenticación y sin publicación en Internet. No incluye grabación ni transmisión continua.
 
 ## Pruebas
 
@@ -111,14 +164,14 @@ python3 -m unittest discover -s backend/tests -v
 node --test frontend/tests/sensors.test.cjs
 ```
 
-Para probar el flujo completo sin hardware, en terminales separadas:
+Para probar el flujo completo sin hardware (con la API LorBot iniciada), en terminales separadas:
 
 ```bash
-python3 -m backend.tests.mock_camera --port 8001
-python3 backend/server.py --port 8002 --camera-url http://127.0.0.1:8001
+python3 backend/tests/mock_camera.py --port 8001
+python3 backend/server.py --camera-url http://127.0.0.1:8001 --sensors-url http://127.0.0.1:8001
 ```
 
-Abre `http://localhost:8002`. La imagen dice **CAMARA SIMULADA - SOLO PRUEBAS**; no es una imagen física de la OV2640.
+El simulador responde como cámara y como ESP32 de sensores; por defecto responde como el firmware con INMP441 (ruido en dBFS); con `--ky038` imita el detector digital anterior, sin dBFS. La imagen dice **CAMARA SIMULADA - SOLO PRUEBAS**; no es una imagen física de la OV2640.
 
 ## Referencias
 

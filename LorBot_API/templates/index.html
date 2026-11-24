@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorBot · Probar un espacio</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef3ef; color: #182e25; font: 1rem/1.5 system-ui, sans-serif; }
+  main { max-width: 590px; margin: 8vh auto; padding: clamp(18px, 5vw, 36px); }
+  h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); margin: .1em 0 .55em; line-height: 1.1; }
+  form { background: white; border: 1px solid #c8d8ce; border-radius: 18px; padding: 24px; display: grid; gap: 18px; }
+  label { display: grid; gap: 6px; font-weight: 600; min-width: 0; }
+  input, button { font: inherit; }
+  input { width: 100%; background: #f7faf8; border: 1px solid #a7bbaf; border-radius: 8px; padding: 10px; color: inherit; }
+  .readings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 12px; }
+  button { border: 0; border-radius: 8px; padding: 11px; background: #205640; color: white; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: .65; cursor: wait; }
+  img { width: 100%; max-height: 260px; object-fit: contain; background: #f2f6f3; border-radius: 8px; }
+  output { display: block; margin-top: 14px; font-weight: 650; overflow-wrap: anywhere; }
+  output:empty { display: none; }
+  output[data-state="error"] { color: #962729; }
+</style>
+</head>
+<body>
+<main>
+  <span>LorBot</span>
+  <h1>Probar un espacio de estudio</h1>
+  <form id="prediction-form">
+    <label>Foto del espacio
+      <input id="photo" name="image" type="file" accept="image/jpeg,image/png,image/webp" required>
+    </label>
+    <img id="preview" alt="Vista previa de la foto" hidden>
+    <div class="readings">
+      <label>Temperatura (°C)
+        <input name="temperature_c" type="number" step="any" placeholder="24" required>
+      </label>
+      <label>Ruido (dBFS)
+        <input name="sound_dbfs" type="number" step="any" placeholder="-22" required>
+      </label>
+    </div>
+    <button type="submit">Clasificar espacio</button>
+  </form>
+  <output id="result" aria-live="polite"></output>
+</main>
+<script>
+  const form = document.querySelector('#prediction-form');
+  const photo = document.querySelector('#photo');
+  const preview = document.querySelector('#preview');
+  const result = document.querySelector('#result');
+  const button = form.querySelector('button');
+  let previewUrl;
+
+  photo.addEventListener('change', () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const file = photo.files[0];
+    preview.hidden = !file;
+    if (file) {
+      previewUrl = URL.createObjectURL(file);
+      preview.src = previewUrl;
+    } else {
+      preview.removeAttribute('src');
+    }
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    button.disabled = true;
+    result.dataset.state = 'pending';
+    result.textContent = 'Clasificando…';
+    try {
+      const response = await fetch('/predict', { method: 'POST', body: new FormData(form) });
+      if (!(response.headers.get('content-type') || '').includes('application/json')) {
+        throw new Error('El servidor no pudo procesar la solicitud.');
+      }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo clasificar la foto.');
+      result.dataset.state = 'success';
+      result.textContent = `Predicción: ${data.prediction} · ${data.temperature_c} °C · ${data.sound_dbfs} dBFS`;
+    } catch (error) {
+      result.dataset.state = 'error';
+      result.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

@@ -66,4 +66,10 @@ def fetch_readings(base_url, timeout=3):
         for field in ("sound_source", "sound_ok", "sound_rms", "sound_dbfs", "sound_peak_dbfs",
                       "sound_threshold_dbfs", "sound_clipped", "sound_age_ms"):
             result[field] = value[field]
+    else:
+        # Detector digital (KY-038): solo sí/no. Un firmware propio puede añadir sound_dbfs.
+        dbfs = value.get("sound_dbfs")
+        if dbfs is not None and (type(dbfs) not in (int, float) or not math.isfinite(dbfs) or not -120 <= dbfs <= 0):
+            raise ValueError("sound_dbfs fuera de rango.")
+        result["sound_dbfs"] = dbfs
     return result

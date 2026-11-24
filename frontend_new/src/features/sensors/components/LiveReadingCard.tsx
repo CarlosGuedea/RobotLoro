@@ -9,12 +9,23 @@ import type { Criterion } from '@/types/domain'
 
 interface LiveReadingCardProps {
   criterion: Criterion
-  value?: number
+  /** undefined = cargando; null = el sensor no da este valor. */
+  value?: number | null
   icon: LucideIcon
+  /** Texto en lugar del número cuando `value` es null. */
+  unavailable?: string
+  hint?: string
 }
 
-export function LiveReadingCard({ criterion, value, icon: Icon }: LiveReadingCardProps) {
-  const status = value === undefined ? undefined : getVariableStatus(criterion, value)
+export function LiveReadingCard({
+  criterion,
+  value,
+  icon: Icon,
+  unavailable = 'Sin lectura',
+  hint,
+}: LiveReadingCardProps) {
+  const number = value ?? undefined
+  const status = number === undefined ? undefined : getVariableStatus(criterion, number)
 
   return (
     <Card className="p-5">
@@ -26,6 +37,8 @@ export function LiveReadingCard({ criterion, value, icon: Icon }: LiveReadingCar
       </div>
       {value === undefined ? (
         <Skeleton className="mt-3 h-9 w-28" />
+      ) : value === null ? (
+        <p className="mt-2 text-xl font-bold tracking-tight text-muted-foreground">{unavailable}</p>
       ) : (
         <p className="mt-2 text-3xl font-extrabold tracking-tight tabular-nums">
           {formatNumber(value)}
@@ -34,9 +47,10 @@ export function LiveReadingCard({ criterion, value, icon: Icon }: LiveReadingCar
           </span>
         </p>
       )}
-      <RangeBar criterion={criterion} value={value} status={status} className="mt-4" />
+      <RangeBar criterion={criterion} value={number} status={status} className="mt-4" />
       <p className="mt-2 text-xs text-muted-foreground">
-        Ideal {criterion.ideal[0]}–{criterion.ideal[1]} {criterion.unit}
+        {hint ??
+          `Entrenado con ${criterion.reference[0]} a ${criterion.reference[1]} ${criterion.unit}`}
       </p>
     </Card>
   )

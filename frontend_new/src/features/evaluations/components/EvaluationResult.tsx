@@ -1,6 +1,6 @@
 import { CircleCheck, CircleX } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDateTime, formatPercent } from '@/lib/format'
+import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Evaluation } from '@/types/domain'
 import { VariableBreakdown } from './VariableBreakdown'
@@ -28,8 +28,8 @@ export function EvaluationResult({ evaluation }: { evaluation: Evaluation }) {
           </p>
           <p className="text-2xl font-extrabold tracking-tight">{apto ? '¡Apto!' : 'No apto'}</p>
           <p className="text-xs opacity-90">
-            Confianza del modelo:{' '}
-            <span className="font-bold tabular-nums">{formatPercent(evaluation.confidence)}</span>
+            Según el modelo LorBot · foto{' '}
+            {evaluation.photoSource === 'camara' ? 'del loro' : 'subida'}
           </p>
         </div>
       </div>
@@ -38,6 +38,10 @@ export function EvaluationResult({ evaluation }: { evaluation: Evaluation }) {
           Evaluado el {formatDateTime(evaluation.createdAt)}
         </p>
         <VariableBreakdown variables={evaluation.variables} />
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          La barra verde es el rango de los datos de entrenamiento; fuera de él el veredicto es
+          menos confiable.
+        </p>
       </CardContent>
     </Card>
   )

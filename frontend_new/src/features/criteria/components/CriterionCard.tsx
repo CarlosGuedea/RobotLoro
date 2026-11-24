@@ -1,12 +1,11 @@
-import { Camera, Radio } from 'lucide-react'
+import { Mic, Thermometer } from 'lucide-react'
 import { RangeBar } from '@/components/shared/RangeBar'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { formatPercent } from '@/lib/format'
 import type { Criterion } from '@/types/domain'
 
 export function CriterionCard({ criterion }: { criterion: Criterion }) {
-  const { label, unit, source, description, weight, ideal, acceptable, scale } = criterion
+  const { key, label, unit, description, reference, trainingMean, scale } = criterion
 
   return (
     <Card className="p-5">
@@ -16,8 +15,8 @@ export function CriterionCard({ criterion }: { criterion: Criterion }) {
           <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
         </div>
         <Badge variant="secondary">
-          {source === 'sensor' ? <Radio /> : <Camera />}
-          {source === 'sensor' ? 'Sensor' : 'Cámara'}
+          {key === 'temperatura' ? <Thermometer /> : <Mic />}
+          {key === 'temperatura' ? 'DHT22' : 'Micrófono'}
         </Badge>
       </div>
 
@@ -31,22 +30,18 @@ export function CriterionCard({ criterion }: { criterion: Criterion }) {
         </span>
       </div>
 
-      <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
-          <dt className="text-xs text-muted-foreground">Ideal</dt>
+          <dt className="text-xs text-muted-foreground">Rango de entrenamiento</dt>
           <dd className="font-semibold tabular-nums">
-            {ideal[0]}–{ideal[1]} {unit}
+            {reference[0]} a {reference[1]} {unit}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Aceptable</dt>
+          <dt className="text-xs text-muted-foreground">Media</dt>
           <dd className="font-semibold tabular-nums">
-            {acceptable[0]}–{acceptable[1]} {unit}
+            {trainingMean} {unit}
           </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Peso</dt>
-          <dd className="font-semibold tabular-nums">{formatPercent(weight)}</dd>
         </div>
       </dl>
     </Card>

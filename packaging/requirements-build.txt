@@ -1,0 +1,7 @@
+# Entorno para compilar el ejecutable (Python 3.12). Instalar con:
+#   pip install -r packaging/requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# El índice de PyTorch CPU evita bajar CUDA (varios GB) que el paquete no necesita.
+-r ../LorBot_API/requirements.txt
+torch==2.8.0+cpu
+torchvision==0.23.0+cpu
+pyinstaller>=6.11

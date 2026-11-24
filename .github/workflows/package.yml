@@ -1,0 +1,96 @@
+# Compila StudyBot (modelo + backend + dashboard) para Windows y Linux, lo prueba y lo publica.
+#   - Cada push a main/frontend-new que toque el producto: zips en «Artifacts» del run.
+#   - Etiqueta v* (git tag v1.0.0 && git push --tags): además crea un Release con los zips.
+#   - Manual: pestaña Actions → «Empaquetar StudyBot» → Run workflow.
+name: Empaquetar StudyBot
+
+on:
+  push:
+    branches: [main, frontend-new]
+    tags: ["v*"]
+    paths:
+      - "backend/**"
+      - "frontend_new/**"
+      - "LorBot_API/**"
+      - "packaging/**"
+      - ".github/workflows/package.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest }
+          - { name: Linux, os: ubuntu-22.04 }  # glibc 2.35: corre en Ubuntu 22.04 o más nuevo.
+    env:
+      PYTHONUTF8: "1"
+      PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            packaging/requirements-build.txt
+            LorBot_API/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend_new/package-lock.json
+
+      - name: Dependencias de compilación
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r packaging/requirements-build.txt
+
+      - name: Pruebas del backend
+        run: python -m unittest discover -s backend/tests -v
+
+      - name: Caché de CLIP
+        uses: actions/cache@v4
+        with:
+          path: packaging/build/clip
+          key: clip-${{ hashFiles('LorBot_API/lorbot_pipeline.joblib') }}
+
+      - name: Compilar
+        run: python packaging/build.py
+
+      - name: Probar el paquete
+        run: python packaging/smoke_test.py
+
+      - name: Subir zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyBot-${{ matrix.name }}
+          path: packaging/dist/StudyBot-*.zip
+          compression-level: 0  # Ya es un zip.
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: zips
+          merge-multiple: true
+      - name: Crear Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" zips/*.zip --repo "$GITHUB_REPOSITORY" --title "StudyBot $GITHUB_REF_NAME" --generate-notes
