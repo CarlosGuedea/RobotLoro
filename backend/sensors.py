@@ -44,5 +44,9 @@ def fetch_readings(base_url, timeout=3):
                 raise ValueError(f"{field} fuera de rango.")
         elif number is not None:
             raise ValueError("Un fallo DHT debe incluir valores nulos.")
+    # Opcional: firmware con micrófono analógico/I2S que ya calcula el nivel en dBFS.
+    dbfs = value.get("sound_dbfs")
+    if dbfs is not None and (type(dbfs) not in (int, float) or not math.isfinite(dbfs) or not -120 <= dbfs <= 0):
+        raise ValueError("sound_dbfs fuera de rango.")
     fields = ("temperature_c", "humidity_pct", "dht_ok", "sound_detected", "sound_level", "sample_age_ms", "uptime_ms", "sound_activity_count")
-    return {field: value[field] for field in fields}
+    return {**{field: value[field] for field in fields}, "sound_dbfs": dbfs}

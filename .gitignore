@@ -10,3 +10,10 @@ output/
 .env.*
 !.env.example
 *.log
+
+# Historial de evaluaciones y fotos
+data/
+
+# Empaquetado
+packaging/build/
+packaging/dist/

@@ -4,6 +4,7 @@ import {
   History,
   LayoutDashboard,
   MapPin,
+  Settings,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -19,4 +20,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/lugares', label: 'Lugares', icon: MapPin },
   { to: '/historial', label: 'Historial', icon: History },
   { to: '/criterios', label: 'Criterios', icon: ClipboardList },
+  { to: '/configuracion', label: 'Configuración', icon: Settings },
 ]

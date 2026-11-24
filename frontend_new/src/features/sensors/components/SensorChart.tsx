@@ -1,12 +1,13 @@
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatTime } from '@/lib/format'
@@ -20,18 +21,28 @@ const SERIES = [
     color: 'var(--color-pico-500)',
     axis: 'temp',
   },
-  { key: 'noiseDb', label: 'Ruido', unit: 'dB', color: 'var(--color-loro-500)', axis: 'noise' },
+  {
+    key: 'humidityPct',
+    label: 'Humedad',
+    unit: '%',
+    color: 'var(--color-loro-500)',
+    axis: 'humidity',
+  },
 ] as const
 
+const TICK = { fill: 'var(--muted-foreground)', fontSize: 12 }
+
 export function SensorChart() {
-  const { data, isPending } = useReadingHistory(30)
+  const { data, isPending, isError } = useReadingHistory(30)
 
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between">
         <div>
           <CardTitle>Sensores · últimos 30 minutos</CardTitle>
-          <CardDescription>Lecturas que envía el StudyBot cada minuto</CardDescription>
+          <CardDescription>
+            Promedio por minuto de las lecturas del ESP32 de sensores
+          </CardDescription>
         </div>
         <div className="flex gap-4 text-xs font-medium">
           {SERIES.map((s) => (
@@ -45,18 +56,15 @@ export function SensorChart() {
       <CardContent>
         {isPending ? (
           <Skeleton className="h-64 w-full" />
+        ) : isError || !data?.length ? (
+          <EmptyState
+            title={isError ? 'Backend sin conexión' : 'Sin lecturas todavía'}
+            description="Las lecturas aparecen aquí en cuanto el ESP32 de sensores responde."
+          />
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
-                <defs>
-                  {SERIES.map((s) => (
-                    <linearGradient key={s.key} id={`fill-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={s.color} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={s.color} stopOpacity={0} />
-                    </linearGradient>
-                  ))}
-                </defs>
+              <LineChart data={data} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="timestamp"
@@ -64,22 +72,25 @@ export function SensorChart() {
                   tickLine={false}
                   axisLine={false}
                   minTickGap={40}
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tick={TICK}
                 />
                 <YAxis
                   yAxisId="temp"
-                  domain={[15, 35]}
+                  domain={[
+                    (min: number) => Math.floor(min - 2),
+                    (max: number) => Math.ceil(max + 2),
+                  ]}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tick={TICK}
                 />
                 <YAxis
-                  yAxisId="noise"
+                  yAxisId="humidity"
                   orientation="right"
-                  domain={[20, 80]}
+                  domain={[0, 100]}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                  tick={TICK}
                 />
                 <Tooltip
                   labelFormatter={(v) => formatTime(String(v))}
@@ -91,7 +102,7 @@ export function SensorChart() {
                   }}
                 />
                 {SERIES.map((s) => (
-                  <Area
+                  <Line
                     key={s.key}
                     yAxisId={s.axis}
                     type="monotone"
@@ -99,11 +110,12 @@ export function SensorChart() {
                     name={`${s.label} (${s.unit})`}
                     stroke={s.color}
                     strokeWidth={2}
-                    fill={`url(#fill-${s.key})`}
+                    dot={data.length < 3}
+                    connectNulls
                     isAnimationActive={false}
                   />
                 ))}
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
         )}

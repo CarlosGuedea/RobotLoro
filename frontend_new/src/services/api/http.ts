@@ -37,7 +37,14 @@ export async function http<T>(
   })
 
   if (!response.ok) {
-    const message = await response.text().catch(() => response.statusText)
+    // El backend responde `{ "error": "mensaje para la persona usuaria" }`.
+    const text = await response.text().catch(() => '')
+    let message = text
+    try {
+      message = (JSON.parse(text) as { error?: string }).error ?? text
+    } catch {
+      // No era JSON: se usa el texto tal cual.
+    }
     throw new ApiError(response.status, message || response.statusText)
   }
 

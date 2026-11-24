@@ -9,34 +9,83 @@ import { Label } from '@/components/ui/label'
 import { CapturedPhoto } from '@/features/evaluations/components/CapturedPhoto'
 import { CaptureProgress } from '@/features/evaluations/components/CaptureProgress'
 import { EvaluationResult } from '@/features/evaluations/components/EvaluationResult'
+import {
+  MeasurementFields,
+  type Measurements,
+} from '@/features/evaluations/components/MeasurementFields'
 import { ScreenEyes, ScreenViewfinder } from '@/features/evaluations/components/ParrotScreen'
 import { ShutterButton } from '@/features/evaluations/components/ShutterButton'
 import { useCreateEvaluation } from '@/features/evaluations/hooks/useEvaluations'
 import { usePlaces } from '@/features/places/hooks/usePlaces'
+import { useLatestReading } from '@/features/sensors/hooks/useSensorReadings'
 
 const STAGE_INPUT =
   'border-white/15 bg-white/10 text-white placeholder:text-white/45 focus-visible:ring-pico-400/40'
 
 const HOW_IT_WORKS = [
   { icon: MapPin, text: 'Coloca al StudyBot en el lugar que quieres probar.' },
-  { icon: Sparkles, text: 'Escribe cómo se llama el lugar (puede ser nuevo).' },
-  { icon: Camera, text: 'Presiona el obturador: sus ojos se vuelven cámara y toman la foto.' },
+  {
+    icon: Sparkles,
+    text: 'Escribe cómo se llama el lugar y mide el ruido con el micrófono (o escríbelo).',
+  },
+  {
+    icon: Camera,
+    text: 'Presiona el obturador: el loro toma la foto y el modelo LorBot da el veredicto.',
+  },
 ]
+
+/** '' → undefined (usar sensor); acepta coma decimal. */
+const toNumber = (text: string) => {
+  const trimmed = text.trim().replace(',', '.')
+  return trimmed === '' ? undefined : Number(trimmed)
+}
+
+const EMPTY_MEASUREMENTS: Measurements = {
+  temperature: '',
+  noise: '',
+  noiseSource: 'manual',
+  photo: null,
+}
 
 export function EvaluatePage() {
   const [searchParams] = useSearchParams()
   const [placeName, setPlaceName] = useState(searchParams.get('lugar') ?? '')
   const [notes, setNotes] = useState('')
+  const [measurements, setMeasurements] = useState(EMPTY_MEASUREMENTS)
+  const [measuring, setMeasuring] = useState(false)
   const places = usePlaces()
+  const reading = useLatestReading()
   const evaluation = useCreateEvaluation()
   const ids = { name: useId(), notes: useId(), suggestions: useId() }
 
-  const canSubmit = placeName.trim().length > 0 && !evaluation.isPending
+  const temperatureC = toNumber(measurements.temperature)
+  const soundDbfs = toNumber(measurements.noise)
+  // Si no se escribe un valor, el backend usa el del sensor; aquí solo se avisa si falta.
+  const missing =
+    temperatureC === undefined && reading.data?.temperatureC == null
+      ? 'Escribe la temperatura: el DHT22 no tiene lectura'
+      : soundDbfs === undefined && reading.data?.soundDbfs == null
+        ? 'Mide o escribe el ruido para continuar'
+        : [temperatureC, soundDbfs].some((n) => n !== undefined && !Number.isFinite(n))
+          ? 'Temperatura y ruido deben ser números'
+          : soundDbfs !== undefined && soundDbfs > 0
+            ? 'El ruido en dBFS va de -120 a 0'
+            : undefined
+
+  const canSubmit = placeName.trim().length > 0 && !missing && !measuring && !evaluation.isPending
   const result = evaluation.isPending ? undefined : evaluation.data
 
   const evaluate = (event?: FormEvent) => {
     event?.preventDefault()
-    if (canSubmit) evaluation.mutate({ placeName, notes })
+    if (!canSubmit) return
+    evaluation.mutate({
+      placeName,
+      notes,
+      temperatureC,
+      soundDbfs,
+      soundSource: soundDbfs === undefined ? undefined : measurements.noiseSource,
+      photo: measurements.photo?.dataUrl,
+    })
   }
 
   // Los ojos son la cámara: visor al capturar y, después, la reacción del loro.
@@ -101,6 +150,17 @@ export function EvaluatePage() {
               </div>
             </div>
 
+            <div className="w-full border-t border-white/10 pt-4">
+              <MeasurementFields
+                value={measurements}
+                onChange={setMeasurements}
+                reading={reading.data}
+                disabled={evaluation.isPending}
+                inputClassName={STAGE_INPUT}
+                onMeasuringChange={setMeasuring}
+              />
+            </div>
+
             <ParrotCamera
               screen={screen}
               recording={evaluation.isPending}
@@ -121,9 +181,11 @@ export function EvaluatePage() {
                   ? 'Capturando y evaluando…'
                   : !placeName.trim()
                     ? 'Escribe el nombre del lugar para empezar'
-                    : result
-                      ? 'Volver a tomar foto'
-                      : 'Tomar foto y evaluar'}
+                    : missing
+                      ? missing
+                      : result
+                        ? 'Volver a tomar foto'
+                        : 'Tomar foto y evaluar'}
               </p>
             </div>
           </form>
@@ -152,7 +214,8 @@ export function EvaluatePage() {
                 </CardTitle>
                 {evaluation.isError && (
                   <CardDescription>
-                    Revisa que el dispositivo esté conectado y vuelve a intentarlo.
+                    {evaluation.error.message ||
+                      'Revisa que el dispositivo esté conectado y vuelve a intentarlo.'}
                   </CardDescription>
                 )}
               </CardHeader>

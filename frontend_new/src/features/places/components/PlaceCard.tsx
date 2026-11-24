@@ -4,15 +4,10 @@ import { VerdictBadge } from '@/components/shared/VerdictBadge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { CRITERIA_BY_KEY } from '@/config/criteria'
-import { formatRelative } from '@/lib/format'
+import { getVariableStatus } from '@/lib/criteria'
+import { formatNumber, formatRelative } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { Place, VariableStatus } from '@/types/domain'
-
-const DOT: Record<VariableStatus, string> = {
-  optimo: 'bg-success',
-  aceptable: 'bg-warning',
-  fuera_de_rango: 'bg-destructive',
-}
+import type { Place } from '@/types/domain'
 
 export function PlaceCard({ place }: { place: Place }) {
   const last = place.lastEvaluation
@@ -32,12 +27,19 @@ export function PlaceCard({ place }: { place: Place }) {
       </div>
 
       <div className="mt-4 mb-5 flex flex-wrap gap-x-3 gap-y-1.5">
-        {last.variables.map((v) => (
-          <span key={v.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn('size-2 rounded-full', DOT[v.status])} />
-            {CRITERIA_BY_KEY[v.key].label}
-          </span>
-        ))}
+        {last.variables.map((v) => {
+          const criterion = CRITERIA_BY_KEY[v.key]
+          const typical = getVariableStatus(criterion, v.value) === 'en_rango'
+          return (
+            <span key={v.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className={cn('size-2 rounded-full', typical ? 'bg-success' : 'bg-warning')} />
+              {criterion.label}{' '}
+              <span className="font-semibold text-foreground tabular-nums">
+                {formatNumber(v.value)} {criterion.unit}
+              </span>
+            </span>
+          )
+        })}
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 border-t pt-4">

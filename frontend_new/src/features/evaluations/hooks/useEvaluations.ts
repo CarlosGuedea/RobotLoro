@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { api } from '@/services'
+import { api, ApiError } from '@/services'
 import { queryKeys } from '@/services/query-keys'
 
 export function useEvaluations(placeId?: string) {
@@ -25,6 +25,9 @@ export function useCreateEvaluation() {
         toast.warning(`${evaluation.placeName} no es apto por ahora`)
       }
     },
-    onError: () => toast.error('No se pudo comunicar con el StudyBot. Intenta de nuevo.'),
+    onError: (error) =>
+      toast.error(
+        error instanceof ApiError ? error.message : 'No se pudo comunicar con el StudyBot.',
+      ),
   })
 }

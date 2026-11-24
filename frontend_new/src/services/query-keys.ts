@@ -9,4 +9,5 @@ export const queryKeys = {
   evaluations: (placeId?: string) => ['evaluations', { placeId }] as const,
   evaluationsRoot: ['evaluations'] as const,
   criteria: ['criteria'] as const,
+  settings: ['settings'] as const,
 }

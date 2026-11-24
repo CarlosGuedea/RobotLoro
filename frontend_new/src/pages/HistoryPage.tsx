@@ -16,14 +16,14 @@ import {
 import { CRITERIA } from '@/config/criteria'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { usePlaces } from '@/features/places/hooks/usePlaces'
-import { formatDateTime, formatNumber, formatPercent } from '@/lib/format'
+import { getVariableStatus } from '@/lib/criteria'
+import { formatDateTime, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { VariableStatus } from '@/types/domain'
 
 const VALUE_TONE: Record<VariableStatus, string> = {
-  optimo: '',
-  aceptable: 'text-warning',
-  fuera_de_rango: 'text-destructive font-semibold',
+  en_rango: '',
+  fuera_de_rango: 'text-warning font-semibold',
 }
 
 export function HistoryPage() {
@@ -69,10 +69,10 @@ export function HistoryPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-16">Foto</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Lugar</TableHead>
                 <TableHead>Resultado</TableHead>
-                <TableHead className="text-right">Confianza</TableHead>
                 {CRITERIA.map((c) => (
                   <TableHead key={c.key} className="text-right">
                     {c.label}
@@ -83,6 +83,20 @@ export function HistoryPage() {
             <TableBody>
               {data.map((e) => (
                 <TableRow key={e.id}>
+                  <TableCell>
+                    {e.photoUrl ? (
+                      <a href={e.photoUrl} target="_blank" rel="noreferrer">
+                        <img
+                          src={e.photoUrl}
+                          alt={`Foto de ${e.placeName}`}
+                          loading="lazy"
+                          className="h-9 w-12 rounded object-cover"
+                        />
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {formatDateTime(e.createdAt)}
                   </TableCell>
@@ -93,9 +107,6 @@ export function HistoryPage() {
                   <TableCell>
                     <VerdictBadge verdict={e.verdict} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatPercent(e.confidence)}
-                  </TableCell>
                   {CRITERIA.map((c) => {
                     const v = e.variables.find((x) => x.key === c.key)
                     return (
@@ -103,7 +114,7 @@ export function HistoryPage() {
                         key={c.key}
                         className={cn(
                           'text-right whitespace-nowrap tabular-nums',
-                          v && VALUE_TONE[v.status],
+                          v && VALUE_TONE[getVariableStatus(c, v.value)],
                         )}
                       >
                         {v ? `${formatNumber(v.value)} ${c.unit}` : '—'}

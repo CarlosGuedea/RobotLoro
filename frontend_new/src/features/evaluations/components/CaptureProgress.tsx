@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const STEPS = [
-  'Tomando la foto',
   'Leyendo temperatura y ruido',
-  'Analizando con el modelo',
-  'Preparando resultado',
+  'Tomando la foto',
+  'Analizando con LorBot (CLIP)',
+  'Guardando resultado',
 ]
 
 /**

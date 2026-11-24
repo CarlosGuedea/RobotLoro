@@ -1,6 +1,7 @@
 import type {
   CreateEvaluationInput,
   Criterion,
+  DeviceSettings,
   DeviceStatus,
   Evaluation,
   Place,
@@ -19,7 +20,10 @@ export interface StudyBotApi {
   /** Lugares ya probados, agrupados a partir de las evaluaciones. */
   getPlaces(): Promise<Place[]>
   getEvaluations(params?: { placeId?: string }): Promise<Evaluation[]>
-  /** Dispara la foto + lectura de sensores, corre el modelo y devuelve el veredicto. */
+  /** Lee sensores, toma (o recibe) la foto, consulta al modelo LorBot y guarda el veredicto. */
   createEvaluation(input: CreateEvaluationInput): Promise<Evaluation>
   getCriteria(): Promise<Criterion[]>
+  getSettings(): Promise<DeviceSettings>
+  /** Acepta IP o nombre sin `http://`; el backend lo normaliza y lo guarda. */
+  updateSettings(settings: DeviceSettings): Promise<DeviceSettings>
 }

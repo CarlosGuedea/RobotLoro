@@ -41,7 +41,8 @@ export function DashboardPage() {
             </h2>
             <p className="mt-2 max-w-xl text-sm text-loro-100">
               Lleva al loro a cualquier lugar, escribe cómo se llama y toma la foto desde aquí. El
-              modelo analiza temperatura, ruido, iluminación, ocupación y mobiliario.
+              modelo LorBot combina la temperatura, el ruido y lo que ve en la foto: si hay mesa,
+              silla libre, espacio de trabajo y buena luz.
             </p>
           </div>
           <Link to="/evaluar" className={buttonVariants({ variant: 'accent', size: 'lg' })}>
@@ -68,12 +69,25 @@ export function DashboardPage() {
         />
         <LiveReadingCard
           criterion={CRITERIA_BY_KEY.temperatura}
-          value={reading.data?.temperatureC}
+          value={reading.isError ? null : reading.data?.temperatureC}
+          unavailable={reading.isError ? 'Sensores sin conexión' : 'DHT22 sin lectura'}
           icon={Thermometer}
         />
         <LiveReadingCard
           criterion={CRITERIA_BY_KEY.ruido}
-          value={reading.data?.noiseDb}
+          value={reading.isError ? null : reading.data?.soundDbfs}
+          unavailable={
+            reading.isError
+              ? 'Sensores sin conexión'
+              : reading.data?.soundDetected
+                ? 'Sonido detectado'
+                : 'Sin sonido fuerte'
+          }
+          hint={
+            reading.data && reading.data.soundDbfs === null
+              ? 'El sensor solo detecta sí/no; los dBFS se miden al evaluar.'
+              : undefined
+          }
           icon={Volume2}
         />
       </div>
