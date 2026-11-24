@@ -86,6 +86,15 @@ export interface DeviceStatus {
   components: DeviceComponent[]
 }
 
+/** Si el dashboard se puede abrir desde otros equipos de la red local. */
+export interface NetworkInfo {
+  /** false si StudyBot se inició solo para esta computadora (--host 127.0.0.1). */
+  shared: boolean
+  port: number
+  /** Dirección para celulares y otras computadoras en la misma red; null si no se detectó. */
+  url: string | null
+}
+
 /** Direcciones de los ESP32 (se guardan en el backend). */
 export interface DeviceSettings {
   cameraUrl: string

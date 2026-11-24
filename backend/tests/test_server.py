@@ -477,3 +477,31 @@ class EvaluationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NetworkTests(unittest.TestCase):
+    def server(self, host):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        server = create_server(host, 0, data_dir=tmp.name, frontend_dir=tmp.name)
+        self.addCleanup(server.server_close)
+        return server
+
+    def test_local_only_server_is_not_shared(self):
+        self.assertEqual(self.server("127.0.0.1").network()["shared"], False)
+        self.assertIsNone(self.server("127.0.0.1").network()["url"])
+
+    def test_network_server_reports_its_lan_url(self):
+        server = self.server("0.0.0.0")
+        network = server.network()
+        self.assertTrue(network["shared"])
+        if network["url"] is not None:  # Sin red (CI aislado) no hay dirección que mostrar.
+            self.assertRegex(network["url"], rf"^http://\d+\.\d+\.\d+\.\d+:{server.server_port}$")
+            self.assertFalse(network["url"].startswith("http://127."))
+
+    def test_lan_address_ignores_loopback_and_bad_targets(self):
+        from backend.server import lan_address
+        loopback = lan_address("127.0.0.1")  # Simulador local: cae a la interfaz principal.
+        self.assertTrue(loopback is None or not loopback.startswith("127."))
+        address = lan_address("esp32sensores.local")
+        self.assertTrue(address is None or not address.startswith("127."))

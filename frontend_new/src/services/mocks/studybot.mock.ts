@@ -142,6 +142,11 @@ export const mockStudyBotApi: StudyBotApi = {
     return settings
   },
 
+  async getNetwork() {
+    await delay(150)
+    return { shared: true, port: 8000, url: 'http://192.168.1.20:8000' }
+  },
+
   async getCriteria() {
     await delay(200)
     return CRITERIA

@@ -10,4 +10,5 @@ export const queryKeys = {
   evaluationsRoot: ['evaluations'] as const,
   criteria: ['criteria'] as const,
   settings: ['settings'] as const,
+  network: ['network'] as const,
 }

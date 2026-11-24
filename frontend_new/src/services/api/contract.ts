@@ -3,6 +3,7 @@ import type {
   Criterion,
   DeviceSettings,
   DeviceStatus,
+  NetworkInfo,
   Evaluation,
   Place,
   SensorReading,
@@ -26,4 +27,6 @@ export interface StudyBotApi {
   getSettings(): Promise<DeviceSettings>
   /** Acepta IP o nombre sin `http://`; el backend lo normaliza y lo guarda. */
   updateSettings(settings: DeviceSettings): Promise<DeviceSettings>
+  /** Dirección para abrir el dashboard desde otros equipos de la red. */
+  getNetwork(): Promise<NetworkInfo>
 }

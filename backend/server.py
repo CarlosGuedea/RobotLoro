@@ -12,6 +12,7 @@ import logging
 import math
 import mimetypes
 import os
+import socket
 import threading
 import time
 from collections import deque
@@ -54,6 +55,29 @@ def now_iso():
 
 
 MAX_AUDIO_AGE_MS = 10_000
+
+
+def lan_address(target=None):
+    """IP de esta computadora en la red local: la de la interfaz que llega a `target` (un ESP32).
+
+    Si `target` no es una IP (nombre .local) o se alcanza por loopback (simulador local), usa la
+    interfaz de la ruta por defecto.
+    """
+    try:
+        socket.inet_aton(target or "")
+        targets = [target, "10.255.255.255"]
+    except OSError:
+        targets = ["10.255.255.255"]
+    for candidate in targets:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            try:
+                probe.connect((candidate, 80))  # UDP: no envía nada, solo elige la interfaz.
+                address = probe.getsockname()[0]
+            except OSError:
+                continue
+        if not address.startswith(("127.", "0.")):
+            return address
+    return None
 
 
 def to_reading(raw, received_at):
@@ -229,6 +253,13 @@ class CaptureServer(ThreadingHTTPServer):
             return ("degradado" if error.code == 503 else "error"), "La OV2640 no inició; revisa el monitor serie."
         except OSError:
             return "error", f"Sin respuesta en {self.camera_url}"
+
+    def network(self):
+        """Si el dashboard se puede abrir desde otros equipos de la red, y con qué dirección."""
+        shared = self.server_address[0] in ("0.0.0.0", "", "::")
+        address = lan_address(urlsplit(self.sensors_url).hostname) if shared else None
+        return {"shared": shared, "port": self.server_port,
+                "url": f"http://{address}:{self.server_port}" if address else None}
 
     # --- Estado general -----------------------------------------------------------
     def device_status(self):
@@ -418,6 +449,8 @@ class Handler(BaseHTTPRequestHandler):
             self.json(200, server.reading_history(int(limit) if limit.isdigit() else 30))
         elif path == "/api/settings":
             self.json(200, server.settings())
+        elif path == "/api/network":
+            self.json(200, server.network())
         elif path == "/api/device/status":
             self.json(200, server.device_status())
         elif path == "/api/evaluations":
@@ -537,7 +570,7 @@ def create_server(host="127.0.0.1", port=8000, camera_url="http://esp32cam.local
 
 def main():
     parser = argparse.ArgumentParser(description="StudyBot Loro: ESP32-CAM + sensores + modelo LorBot")
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--host", default="127.0.0.1", help="0.0.0.0 para abrirlo desde otros equipos de la red")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--camera-url", default=os.getenv("CAMERA_URL", "http://esp32cam.local"))
     parser.add_argument("--timeout", type=float, default=8)
@@ -559,6 +592,8 @@ def main():
         print("Aviso: el dashboard no está compilado; ejecuta npm --prefix frontend_new run build", flush=True)
     print(f"Abre http://localhost:{server.server_port} | Cámara: {server.camera_url} | "
           f"Sensores: {server.sensors_url} | LorBot: {server.api_url}", flush=True)
+    if server.network()["url"]:
+        print(f"Desde otros equipos de la red: {server.network()['url']}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

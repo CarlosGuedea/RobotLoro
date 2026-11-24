@@ -30,4 +30,5 @@ export const httpStudyBotApi: StudyBotApi = {
   getCriteria: async () => CRITERIA,
   getSettings: () => http('/api/settings'),
   updateSettings: (settings) => http('/api/settings', { method: 'PUT', body: settings }),
+  getNetwork: () => http('/api/network'),
 }

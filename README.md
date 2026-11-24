@@ -105,7 +105,7 @@ Para abrir la interfaz desde otro dispositivo de la misma red:
 python3 backend/server.py --host 0.0.0.0 --camera-url http://192.168.1.50
 ```
 
-Abre entonces `http://<IP-del-ordenador>:8000`. El ordenador debe tener acceso a la cámara en `linksys`; si el router aísla clientes, ninguna captura desde Python podrá llegar a ella. Desde otra IP el navegador no permite usar el micrófono (solo `localhost` o HTTPS): escribe el ruido a mano.
+La consola muestra la dirección para otros equipos (`http://<IP-del-ordenador>:8000`) y el dashboard la ofrece con código QR en **Configuración → Abrir desde el celular**. El ejecutable empaquetado ya se abre así por defecto. El ordenador debe tener acceso a la cámara en `linksys`; si el router aísla clientes, ninguna captura desde Python podrá llegar a ella. Desde otra IP el navegador no permite usar el micrófono (solo `localhost` o HTTPS): el ruido lo mide el INMP441 o se escribe a mano.
 
 Las direcciones de la cámara y los sensores también se cambian desde el dashboard, en **Configuración**; se guardan en `data/settings.json` y tienen prioridad sobre `--camera-url`/`--sensors-url`.
 
@@ -124,6 +124,7 @@ Rutas del dashboard (detalle y ejemplos en `frontend_new/README.md`):
 | `GET /api/evaluations?placeId=` · `GET /api/places` | Historial y lugares probados |
 | `GET /api/photos/<id>.jpg` | Foto de una evaluación |
 | `GET` · `PUT /api/settings` | Direcciones de la cámara y los sensores (`cameraUrl`, `sensorsUrl`) |
+| `GET /api/network` | Si el dashboard está abierto a la red y su dirección (`shared`, `url`) |
 
 Rutas originales, se conservan:
 

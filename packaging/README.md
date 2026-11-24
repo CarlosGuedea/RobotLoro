@@ -85,8 +85,21 @@ El historial, las fotos, la configuración y el registro (`studybot.log`) se gua
 - Windows: `%LOCALAPPDATA%\StudyBot`
 - Linux: `~/.local/share/StudyBot`
 
-Opciones: `StudyBot --host 0.0.0.0` para abrir el dashboard desde otros equipos de la red
-(el micrófono del navegador solo funciona en `localhost`), `--port 9000`, `--no-browser`.
+### Desde el celular u otras computadoras
+
+StudyBot se abre para la red: cualquier dispositivo conectado a **linksys** puede usar el
+dashboard en el navegador, sin instalar nada. La consola muestra la dirección
+(`http://192.168.x.x:8000`) y **Configuración → Abrir desde el celular** tiene un código QR.
+
+- La computadora con StudyBot debe quedar encendida: ella habla con los ESP32 y corre el modelo.
+- Si el celular no carga la página, en Windows permite StudyBot en el firewall y marca la red
+  linksys como **privada** (Configuración → Red e Internet → Wi-Fi → linksys).
+- El botón de micrófono del navegador solo funciona en la computadora (`localhost`). En el
+  celular el ruido lo mide el INMP441 del loro o se escribe a mano.
+- linksys no tiene contraseña: quien se conecte a ella puede abrir el dashboard. Para usarlo
+  solo en la computadora: `StudyBot --host 127.0.0.1`.
+
+Otras opciones: `--port 9000`, `--no-browser`.
 
 ## Probar sin empaquetar
 

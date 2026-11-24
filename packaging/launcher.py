@@ -94,8 +94,9 @@ def serve_model(backend, port):
 def main():
     parser = argparse.ArgumentParser(description="StudyBot Loro")
     parser.add_argument("--port", type=int, default=8000, help="Puerto del dashboard (8000)")
-    parser.add_argument("--host", default="127.0.0.1",
-                        help="0.0.0.0 para abrir el dashboard desde otros equipos de la red")
+    parser.add_argument("--host", default="0.0.0.0",
+                        help="Por defecto se abre para la red (celulares y otras computadoras); "
+                             "127.0.0.1 para usarlo solo en esta computadora")
     parser.add_argument("--no-browser", action="store_true", help="No abrir el navegador")
     args = parser.parse_args()
 
@@ -117,6 +118,9 @@ def main():
     url = f"http://localhost:{backend.server_port}"
     print("\n  StudyBot Loro está corriendo.", flush=True)
     print(f"  Abre {url}  ·  datos en {data_dir}", flush=True)
+    lan = backend.network()["url"]
+    if lan:
+        print(f"  Desde celulares u otras computadoras en la misma red: {lan}", flush=True)
     print("  Cierra esta ventana (o Ctrl+C) para detenerlo.\n", flush=True)
     if not args.no_browser:
         webbrowser.open(url)

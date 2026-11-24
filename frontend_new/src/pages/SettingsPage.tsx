@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DeviceCard } from '@/features/device/components/DeviceCard'
+import { ShareCard } from '@/features/network/components/ShareCard'
 import { useSettings, useUpdateSettings } from '@/features/settings/hooks/useSettings'
 import type { DeviceSettings } from '@/types/domain'
 
@@ -104,6 +105,8 @@ export function SettingsPage() {
               )}
             </CardContent>
           </Card>
+
+          <ShareCard />
 
           <Card>
             <CardHeader>

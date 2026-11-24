@@ -84,6 +84,7 @@ enviarse como `application/json` (si no, 415).
 | GET    | `/api/photos/<id>.jpg`          | JPEG              | Foto de cada evaluación                                  |
 | GET    | `/api/settings`                 | `DeviceSettings`  | Direcciones de la ESP32-CAM y del ESP32 de sensores      |
 | PUT    | `/api/settings`                 | `DeviceSettings`  | Guarda direcciones (acepta IP o nombre sin `http://`)    |
+| GET    | `/api/network`                  | `NetworkInfo`     | Dirección para abrirlo desde el celular (código QR)      |
 
 Cuerpo de `POST /api/evaluations` (JSON):
 
