@@ -196,6 +196,23 @@ class CaptureTests(unittest.TestCase):
         self.camera.reply = (200, "application/json", b'{"temperature_c":')
         self.assertEqual(self.fetch("/api/sensors")[0], 502)
 
+    def test_inmp441_metrics_are_received(self):
+        self.sensor_reply(sound_source="inmp441", sound_level=None, sound_ok=True,
+                          sound_rms=0.01, sound_dbfs=-40.0, sound_peak_dbfs=-30.0,
+                          sound_threshold_dbfs=-35.0, sound_clipped=False, sound_age_ms=100)
+        status, _, data = self.fetch("/api/sensors")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(data)["readings"]["sound_dbfs"], -40.0)
+
+    def test_inmp441_failure_preserves_dht(self):
+        self.sensor_reply(sound_source="inmp441", sound_level=None, sound_ok=False,
+                          sound_rms=None, sound_dbfs=None, sound_peak_dbfs=None,
+                          sound_threshold_dbfs=-35.0, sound_clipped=False, sound_age_ms=100)
+        status, _, data = self.fetch("/api/sensors")
+        self.assertEqual(status, 200)
+        self.assertFalse(json.loads(data)["readings"]["sound_ok"])
+        self.assertEqual(json.loads(data)["readings"]["temperature_c"], 24.5)
+
 
 class Hardware(BaseHTTPRequestHandler):
     """Cámara y sensores en un solo servidor, con respuestas por ruta."""
@@ -330,6 +347,46 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(evaluation["variables"], [
             {"key": "temperatura", "value": 33.0, "source": "manual"},
             {"key": "ruido", "value": -18.25, "source": "sensor"}])
+
+    def inmp441(self, **changes):
+        audio = dict(sound_source="inmp441", sound_level=None, sound_ok=True, sound_rms=0.05,
+                     sound_dbfs=-26.0, sound_peak_dbfs=-17.0, sound_threshold_dbfs=-35.0,
+                     sound_clipped=False, sound_age_ms=40)
+        audio.update(changes)
+        self.sensors(**audio)
+
+    def microphone(self):
+        return next(c for c in self.call("/api/device/status")[1]["components"] if c["key"] == "microphone")
+
+    def test_inmp441_dbfs_is_used_for_the_evaluation(self):
+        self.inmp441(sound_dbfs=-26.5)
+        status, evaluation = self.call("/api/evaluations", {"placeName": "Sala de lectura"})
+        self.assertEqual(status, 201)
+        self.assertEqual(evaluation["variables"], [
+            {"key": "temperatura", "value": 24.5, "source": "sensor"},
+            {"key": "ruido", "value": -26.5, "source": "sensor"}])
+        sent = self.model.requests[-1]
+        self.assertEqual(float(sent["sound_dbfs"]), -26.5)
+        latest = self.call("/api/sensors/latest")[1]
+        self.assertEqual((latest["soundSource"], latest["soundOk"], latest["soundDbfs"]), ("inmp441", True, -26.5))
+        self.assertEqual(self.microphone()["health"], "ok")
+
+    def test_inmp441_failure_keeps_temperature_and_asks_for_noise(self):
+        self.inmp441(sound_ok=False, sound_rms=None, sound_dbfs=None, sound_peak_dbfs=None)
+        latest = self.call("/api/sensors/latest")[1]
+        self.assertEqual((latest["temperatureC"], latest["soundDbfs"], latest["soundOk"]), (24.5, None, False))
+        self.assertEqual(self.microphone()["health"], "error")
+        status, body = self.call("/api/evaluations", {"placeName": "Sala de lectura"})
+        self.assertEqual(status, 422)
+        self.assertIn("dBFS", body["error"])
+
+    def test_inmp441_stale_or_clipped_audio(self):
+        self.inmp441(sound_age_ms=60_000)
+        self.assertEqual(self.call("/api/sensors/latest")[1]["soundDbfs"], None)
+        self.assertEqual(self.microphone()["health"], "error")
+        self.app.readings.clear()
+        self.inmp441(sound_dbfs=-0.5, sound_peak_dbfs=0.0, sound_clipped=True)
+        self.assertEqual(self.microphone()["health"], "degradado")
 
     def test_uploaded_photo_skips_camera_and_is_converted_to_jpeg(self):
         status, evaluation = self.call("/api/evaluations", {"placeName": "Jardín", "soundDbfs": -20,

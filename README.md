@@ -1,9 +1,9 @@
 # Proyecto Loro · StudyBot
 
 El loro dice si un lugar es **apto** o **no apto** para estudiar. Una **ESP32-CAM AI Thinker
-(OV2640)** toma la foto, un segundo ESP32 publica temperatura, humedad y detección de sonido,
-y el modelo **LorBot** (CLIP + SVM, en `LorBot_API/`) da el veredicto. El dashboard web
-muestra sensores en vivo, evalúa lugares y guarda el historial.
+(OV2640)** toma la foto, un segundo ESP32 publica temperatura, humedad y nivel de ruido en dBFS
+(micrófono **INMP441** I²S), y el modelo **LorBot** (CLIP + SVM, en `LorBot_API/`) da el
+veredicto. El dashboard web muestra sensores en vivo, evalúa lugares y guarda el historial.
 
 ```text
 frontend_new/                   Dashboard (React + Vite). Se compila a frontend_new/dist
@@ -15,7 +15,7 @@ backend/                        Servidor Python: cámara, sensores, LorBot y API
   tests/                        Pruebas HTTP y hardware simulado
 firmware/
   esp32cam_web/                 Sketch de la ESP32-CAM
-  esp32_sensores/               Sketch: DHT22 y sonido digital
+  esp32_sensores/               Sketch: DHT22 e INMP441 I²S (ruido en dBFS)
 packaging/                      Lanzador y empaquetado como ejecutable (Windows/Linux)
 frontend/                       Página anterior (HTML/JS). Ya no la sirve el backend
 docs/                           Diseño y plan
@@ -31,10 +31,10 @@ Dashboard «Evaluar lugar» → POST /api/evaluations (nombre, ruido en dBFS, te
   ← «Apto» / «No apto», guardado con su foto en data/
 ```
 
-El modelo necesita el ruido en **dBFS**. El sensor de sonido actual es digital (sí/no) y no lo
-mide, así que el dashboard lo mide con el micrófono del dispositivo (botón 🎤) o se escribe a
-mano. Si en el futuro el firmware de sensores agrega `"sound_dbfs"` a `/readings`, el backend
-lo usa automáticamente.
+El modelo necesita el ruido en **dBFS**. Lo mide el **INMP441** del ESP32 de sensores
+(`sound_dbfs` en `/readings`, RMS de ventanas de 100 ms) y el backend lo usa si no se escribe
+otro valor. Si el micrófono falla o la placa tiene el detector digital anterior (KY-038, solo
+sí/no), el dashboard lo mide con el micrófono del dispositivo (botón 🎤) o se escribe a mano.
 
 ## 1. Cargar la ESP32-CAM
 
@@ -138,7 +138,7 @@ Cualquier otra ruta devuelve el dashboard compilado.
 
 ## ESP32 de sensores
 
-Carga `firmware/esp32_sensores/esp32_sensores.ino` en la placa **ESP32 Dev Module**, a 115200 baudios. DHT22 DATA en GPIO27; sensor de sonido OUT en GPIO26. El firmware se conecta a **linksys**, sin contraseña, y anuncia `esp32sensores.local`. Esta es una placa diferente a la ESP32-CAM; identifica el puerto antes de cargar.
+Carga `firmware/esp32_sensores/esp32_sensores.ino` en la placa **ESP32 Dev Module**, a 115200 baudios. DHT22 DATA en GPIO27; INMP441 SCK en GPIO26, WS en GPIO25, SD en GPIO33, L/R a GND y VDD a 3V3. En el montaje verificado con Arduino-ESP32 2.0.17 se selecciona el slot derecho del driver (`MICROPHONE_LEFT_CHANNEL=false`). Consulta `firmware/esp32_sensores/README.md` para el formato PCM, niveles RMS/dBFS y configuración del umbral. El firmware se conecta a **linksys**, sin contraseña, y anuncia `esp32sensores.local`. Esta es una placa diferente a la ESP32-CAM; identifica el puerto antes de cargar.
 
 Python consulta `http://esp32sensores.local/readings` y el frontend actualiza sus valores cada tres segundos. Si necesitas usar una IP concreta:
 
@@ -148,7 +148,7 @@ python3 backend/server.py --sensors-url http://192.168.1.130
 
 Sustituye esa IP de ejemplo por la que aparezca en el monitor serie. Puedes combinar `--sensors-url` y `--camera-url`, o usar `SENSORS_URL` y `CAMERA_URL`.
 
-Un DHT22 desconectado se muestra con guiones para temperatura/humedad, manteniendo disponible el sonido. Si el ESP32 no responde o la muestra tiene más de diez segundos, no se presentan los datos anteriores como actuales. El sonido indica si se observó el nivel digital activo durante la ventana de muestreo; no mide decibeles y puede perder pulsos breves durante operaciones de lectura o red.
+Un DHT22 desconectado se muestra con guiones para temperatura/humedad, manteniendo disponible el audio. Un INMP441 sin señal no impide mostrar el DHT22. Si el ESP32 no responde o la muestra tiene más de diez segundos, no se presentan los datos anteriores como actuales. El INMP441 se muestrea en una tarea independiente y muestra niveles RMS en dBFS, con umbral inicial de -35 dBFS. No son dB SPL calibrados. Solo se transmiten estadísticas de audio, sin grabaciones.
 
 Solo se admite una captura simultánea; otras reciben 409. Cámara inaccesible, error del sensor o JPEG inválido: 502 con mensaje JSON. Tamaño máximo: 2 MiB; espera de conexión/lectura configurable con `--timeout` (8 segundos por defecto). La fecha es la de recepción en el backend, no un reloj sincronizado en la cámara.
 
@@ -170,7 +170,7 @@ python3 backend/tests/mock_camera.py --port 8001
 python3 backend/server.py --camera-url http://127.0.0.1:8001 --sensors-url http://127.0.0.1:8001
 ```
 
-El simulador responde como cámara y como ESP32 de sensores; con `--sound-dbfs` también reporta ruido en dBFS. La imagen dice **CAMARA SIMULADA - SOLO PRUEBAS**; no es una imagen física de la OV2640.
+El simulador responde como cámara y como ESP32 de sensores; por defecto responde como el firmware con INMP441 (ruido en dBFS); con `--ky038` imita el detector digital anterior, sin dBFS. La imagen dice **CAMARA SIMULADA - SOLO PRUEBAS**; no es una imagen física de la OV2640.
 
 ## Referencias
 

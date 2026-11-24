@@ -53,15 +53,40 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+MAX_AUDIO_AGE_MS = 10_000
+
+
 def to_reading(raw, received_at):
     """Muestra del ESP32 → `SensorReading` del dashboard."""
+    inmp441 = raw.get("sound_source") == "inmp441"
+    dbfs = raw.get("sound_dbfs")
+    if inmp441 and raw["sound_age_ms"] > MAX_AUDIO_AGE_MS:
+        dbfs = None  # El micrófono dejó de entregar ventanas: no presentar el último nivel como actual.
     return {"timestamp": received_at, "temperatureC": raw["temperature_c"], "humidityPct": raw["humidity_pct"],
-            "soundDetected": raw["sound_detected"], "soundDbfs": raw.get("sound_dbfs")}
+            "soundDetected": raw["sound_detected"], "soundDbfs": dbfs,
+            "soundSource": "inmp441" if inmp441 else "digital",
+            "soundOk": raw["sound_ok"] and dbfs is not None if inmp441 else None,
+            "soundClipped": bool(raw.get("sound_clipped"))}
 
 
 def average(values):
     values = [v for v in values if v is not None]
     return round(sum(values) / len(values), 1) if values else None
+
+
+def microphone_status(reading):
+    """Estado del sensor de sonido para el panel Dispositivo."""
+    dbfs = reading["soundDbfs"]
+    if reading["soundSource"] == "inmp441":
+        if not reading["soundOk"]:
+            return ("error", "El INMP441 no entrega audio: revisa SCK (GPIO26), WS (GPIO25) y SD (GPIO33). "
+                             "Mientras, mide el ruido desde el dashboard.")
+        if reading["soundClipped"]:
+            return ("degradado", f"INMP441 · {dbfs} dBFS, saturado: el nivel real es mayor")
+        return ("ok", f"INMP441 · {dbfs} dBFS")
+    if dbfs is not None:
+        return ("ok", f"{dbfs} dBFS")
+    return ("degradado", "Detector digital: solo sí/no. Mide los dBFS desde el dashboard.")
 
 
 class CaptureServer(ThreadingHTTPServer):
@@ -152,7 +177,10 @@ class CaptureServer(ThreadingHTTPServer):
                             "temperatureC": average(r["temperatureC"] for r in group),
                             "humidityPct": average(r["humidityPct"] for r in group),
                             "soundDetected": any(r["soundDetected"] for r in group),
-                            "soundDbfs": average(r["soundDbfs"] for r in group)})
+                            "soundDbfs": average(r["soundDbfs"] for r in group),
+                            "soundSource": group[-1]["soundSource"],
+                            "soundOk": group[-1]["soundOk"],
+                            "soundClipped": any(r["soundClipped"] for r in group)})
         return history
 
     def start_sampler(self, interval=3):
@@ -216,8 +244,7 @@ class CaptureServer(ThreadingHTTPServer):
         else:
             temperature = (("ok", f"{reading['temperatureC']} °C · {reading['humidityPct']} % HR")
                            if reading["temperatureC"] is not None else ("degradado", "El DHT22 no entrega lectura."))
-            sound = (("ok", f"{reading['soundDbfs']} dBFS") if reading["soundDbfs"] is not None else
-                     ("degradado", "Solo detecta sonido sí/no; mide los dBFS desde el dashboard."))
+            sound = microphone_status(reading)
         components = [
             ("camera", "Cámara ESP32-CAM", (camera_health, camera_detail)),
             ("temperature", "Sensor DHT22", temperature),

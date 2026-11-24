@@ -1,53 +1,80 @@
-# Proyecto Loro: sensores en ESP32
+# ESP32 con DHT22 e INMP441
 
-Sketch para **ESP32 DevKit con ESP32-WROOM clasico**. Los GPIO elegidos no se aplican directamente a ESP32-C3, S3 u otras variantes. Publica las lecturas por Wi-Fi y por USB. LCD e IA quedan para una siguiente etapa.
+Firmware para ESP32 DevKit / ESP32-WROOM clásico. Conserva DHT22 y sustituye el KY-038 por un micrófono digital INMP441. La cámara utiliza otra placa y otro sketch.
 
-## Conexion al backend
+## Conexiones confirmadas
 
-Se conecta a **linksys**, sin contrasena. El monitor serie muestra su IP y `http://esp32sensores.local/readings`. El backend consulta esta direccion al recibir `GET /api/sensors` del frontend, que actualiza cada 3 segundos.
-
-Si mDNS no resuelve, inicia Python desde la raiz del proyecto con `python3 backend/server.py --sensors-url http://<IP-del-ESP32>`. Tambien puedes configurar `SENSORS_URL`. La camara usa su propia direccion y su propio ESP32.
-
-`GET /readings` y `GET /` devuelven JSON con `temperature_c`, `humidity_pct`, `dht_ok`, `sound_detected`, `sound_level`, `sound_activity_count`, `sample_age_ms` y `uptime_ms`. Antes de la primera muestra responde 503. Un fallo DHT responde con `dht_ok: false` y valores de temperatura/humedad `null`; no reutiliza valores anteriores. El backend valida el JSON antes de mostrarlo. La interfaz retira valores de muestras de mas de 10 segundos y diferencia placa desconectada de DHT sin lectura.
-
-## Conexiones
-
-Desconecta la alimentacion antes de cablear. Usa las etiquetas impresas del modulo para identificar sus terminales.
-
-| Sensor | Terminal | ESP32 |
+| Sensor | Pin | ESP32 |
 | --- | --- | --- |
-| DHT22 | VCC / + | 3V3 |
-| DHT22 | GND / - | GND |
-| DHT22 | DATA / OUT | GPIO27 |
-| Sonido (3 pines) | VCC | 3V3 |
-| Sonido (3 pines) | GND | GND |
-| Sonido (3 pines) | OUT | GPIO26 |
+| INMP441 | VDD | 3V3 |
+| INMP441 | GND | GND |
+| INMP441 | SCK / BCLK | GPIO26 |
+| INMP441 | WS / LRCLK | GPIO25 |
+| INMP441 | SD | GPIO33 |
+| INMP441 | L/R | GND (montaje confirmado; ver selección de slot abajo) |
+| DHT22 | VCC | 3V3 |
+| DHT22 | GND | GND |
+| DHT22 | DATA | GPIO27 |
 
-Adaptado al modulo de la fotografia, con VCC, GND y OUT. Por su circuito con ajuste de umbral, se trata OUT como salida digital; la fotografia no permite confirmar el modelo exacto ni la polaridad activa. GPIO34 queda libre.
+Usa GND común. No alimentes el INMP441 a 5 V. Si el DHT22 no tiene pull-up, agrega 10 kΩ entre DATA y 3V3. Si el módulo expone CHIPEN, debe estar a VDD; normalmente la placa ya lo conecta.
 
-Para el DHT22 sin placa adaptadora, con la rejilla de frente y las patas hacia abajo: 1 VCC, 2 DATA, 3 sin conectar, 4 GND. Agrega una resistencia de 10 kOhm entre DATA y 3V3 si no tiene pull-up integrado. Comprueba el pinout de tu modelo antes de conectarlo.
+Los pines, canal y umbral se configuran en `microphone.h`. El montaje verificado usa **L/R a GND y `MICROPHONE_LEFT_CHANNEL=false`**: con Arduino-ESP32 2.0.17, el audio respondió en el slot derecho del driver, mientras el izquierdo entregó palabras crudas 0 o 1. No cambies simultáneamente el cableado y la constante; si modificas el montaje, comprueba el canal con una captura real. No dejes L/R flotante. Se habilita pull-down en SD para los períodos en que el micrófono deja la línea en alta impedancia; la ficha recomienda una resistencia externa de 100 kΩ si el módulo no la incorpora.
 
-Alimenta el sensor de sonido a 3.3 V y verifica que tu variante admita esa tension. No conectes una salida de 5 V a un GPIO del ESP32. Todos los componentes deben compartir GND.
+## Cómo son las lecturas
 
-## Arduino IDE
+El INMP441 entrega **PCM de 24 bits con signo por I²S**, almacenado aquí en palabras de 32 bits. Una muestra instantánea representa amplitud de la onda, con valores PCM entre -8388608 y 8388607. No es una lectura analógica de `analogRead` ni una salida binaria de umbral.
 
-1. Instala el paquete **esp32 by Espressif Systems** desde el gestor de placas si falta.
-2. Desde el gestor de bibliotecas instala **DHT sensor library by Adafruit** y acepta sus dependencias, incluida **Adafruit Unified Sensor**.
-3. Abre `esp32_sensores.ino` manteniendolo dentro de la carpeta `esp32_sensores`.
-4. Selecciona **ESP32 Dev Module** para un ESP32-WROOM DevKit compatible y el puerto USB de tu placa.
-5. Verifica, carga y abre el monitor serie a **115200 baudios**.
+Se toman 16000 muestras por segundo. Cada ventana de 100 ms calcula RMS con la componente continua eliminada; el audio se procesa en una tarea independiente. Cada 2.5 segundos se publica temperatura, humedad y las estadísticas de audio. No se envían ni guardan grabaciones.
 
-## Lecturas
+| Campo | Significado |
+| --- | --- |
+| `sound_rms` | RMS normalizado, entre 0 y 1 |
+| `sound_dbfs` | Nivel RMS digital de la última ventana de 100 ms |
+| `sound_peak_dbfs` | Mayor nivel RMS de 100 ms observado desde el reporte anterior; no es el pico instantáneo de una muestra |
+| `sound_threshold_dbfs` | Umbral de detección configurado; inicialmente -35 dBFS |
+| `sound_detected` | Alguna ventana del período superó el umbral |
+| `sound_activity_count` | Contador acumulado de períodos con detección, para no perder actividad entre consultas; no cuenta palmadas |
+| `sound_clipped` | Se observaron muestras muy cercanas al límite digital |
+| `sound_ok` | Se recibió audio reciente con variación; no equivale a identificación electrónica del dispositivo |
+| `sound_age_ms` | Antigüedad de la lectura de audio publicada |
 
-Cada 2.5 segundos se genera una muestra JSON con temperatura en Celsius, humedad relativa, estado de OUT al inicio del reporte (0 o 1) y si se observo el nivel activo durante ese intervalo. Se imprime por USB y queda disponible por HTTP. Un fallo del DHT22 se informa sin detener las lecturas de sonido ni presentar datos anteriores como actuales.
+Convención usada: `dBFS = 20 * log10(RMS normalizado)`, relativo a la amplitud digital máxima, con piso de visualización de -120 dBFS. Por ejemplo:
 
-OUT se lee como senal digital: **no mide intensidad ni decibeles**. El potenciometro ajusta el umbral. El sketch asume LOW como nivel activo; si al probar observas OUT=0 en silencio y OUT=1 al detectar ruido, cambia `NIVEL_SONIDO_ACTIVO` a `HIGH`. Ajusta primero el potenciometro para que OUT permanezca estable en silencio y despues prueba con palmadas. Usa tambien el LED indicador de deteccion del modulo como referencia.
+- RMS 0.001 → -60 dBFS.
+- RMS 0.01 → -40 dBFS.
+- RMS 0.1 → -20 dBFS.
 
-El muestreo es basico, con pausas durante la lectura DHT y la impresion serie: puede perder pulsos breves. El indicador SI significa que se observo el nivel activo al menos una vez en el intervalo; no cuenta palmadas ni graba audio. Si OUT no cambia con el sonido, revisa el ajuste del potenciometro y las conexiones. Esta version requiere una prueba fisica para confirmar el comportamiento del modulo de la foto.
+Valores más cercanos a cero representan más señal. Con esta referencia un seno de amplitud máxima tiene RMS 0.7071 y nivel -3.01 dBFS. La sensibilidad de una ficha técnica puede utilizar una referencia de seno distinta; no sumes una constante arbitraria para estimar presión sonora.
+
+**dBFS no es dB SPL ni dBA.** Para umbrales de ruido ambiental calibrados necesitas comparar contra un sonómetro o calibrador y definir la ponderación y ventana de medida. Aquí -35 dBFS es un punto inicial configurable, no un límite ambiental recomendado. Observa silencio, voz y palmadas en tu montaje antes de ajustar `SOUND_THRESHOLD_DBFS`.
+
+Si I²S falla, la señal es constante o deja de llegar, las métricas se publican como `null` y la web muestra “Sin señal de audio”, manteniendo las lecturas del DHT22. Un error del DHT22 solo anula temperatura y humedad. Sin comunicación digital de identificación, el firmware no puede distinguir todos los fallos físicos de un micrófono desconectado.
+
+## Arduino IDE y Wi-Fi
+
+1. Instala **esp32 by Espressif Systems** y **DHT sensor library by Adafruit**, con sus dependencias.
+2. Abre `esp32_sensores.ino` manteniendo los archivos `.h` y `.cpp` en la misma carpeta.
+3. Selecciona **ESP32 Dev Module**, el puerto correcto y carga a **115200**. El monitor serie también usa 115200.
+4. Se conecta a **linksys**, sin contraseña. Publica JSON en `/readings` y `/`, y anuncia `esp32sensores.local`.
+5. Desde la raíz ejecuta `python3 backend/server.py`. Si mDNS falla, usa `--sensors-url http://<IP-de-la-placa>`.
+
+Verificado compilando con Arduino-ESP32 **2.0.17**, usando el controlador I²S legacy incluido. El driver genera dos slots físicos de 32 bits (64 ciclos de SCK por WS) aunque se reciba solo un canal; este montaje respondió en el derecho. La compatibilidad de otras versiones debe comprobarse antes de migrar el paquete.
+
+## Pruebas del cálculo
+
+Desde la raíz:
+
+```bash
+c++ -std=c++11 firmware/tests/audio_metrics_test.cpp -o /tmp/loro-audio-test
+/tmp/loro-audio-test
+python3 -m unittest discover -s backend/tests -v
+node --test frontend/tests/sensors.test.cjs
+```
+
+Estas pruebas validan cálculos y software; no sustituyen la comprobación de la señal con el micrófono conectado.
 
 ## Referencias
 
-- [Referencia de comparador y umbral en sensores de sonido KY-038](https://sensorkit.joy-it.net/en/sensors/ky-038) (referencia de funcionamiento; no identifica el modelo de la foto).
-- [Conexion y uso de DHT22, Adafruit](https://learn.adafruit.com/dht?view=all)
-
-`sound_activity_count` acumula ventanas de muestreo con sonido detectado, no palmadas. El frontend compara el contador entre consultas para conservar detecciones aunque una muestra positiva haya sido reemplazada. No recupera pulsos que el muestreo fisico no detecto; tras una desconexion o reinicio no presenta actividad antigua como nueva.
+- [Ficha INMP441, TDK/InvenSense](https://www.invensense.com/wp-content/uploads/2015/02/INMP441.pdf).
+- [I²S ESP-IDF 4.4](https://docs.espressif.com/projects/esp-idf/en/release-v4.4/esp32/api-reference/peripherals/i2s.html).
+- [DHT22, Adafruit](https://learn.adafruit.com/dht?view=all).

@@ -1,18 +1,17 @@
 /* Proyecto Loro - ESP32 DevKit / ESP32-WROOM clasico.
  * DHT22 DATA -> GPIO27 (pull-up 10 kOhm a 3V3 si hace falta).
- * Sonido de 3 pines OUT -> GPIO26. Ambos: 3V3 y GND comun.
+ * INMP441: SCK->26, WS->25, SD->33, L/R->GND, VDD->3V3 (microphone.h).
  * Wi-Fi abierto linksys. GET /readings entrega la ultima muestra.
- * Monitor serie y carga: 115200. Sonido digital; no mide decibeles.
+ * Monitor serie y carga: 115200. Audio I2S en dBFS; no es dB SPL calibrado.
  */
 #include <Arduino.h>
 #include <DHT.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include "microphone.h"
 
 constexpr uint8_t PIN_DHT = 27;
-constexpr uint8_t PIN_SONIDO_DIGITAL = 26;
-constexpr uint8_t NIVEL_SONIDO_ACTIVO = LOW;  // Cambiar a HIGH si tu modulo lo requiere.
 constexpr uint32_t INTERVALO_REPORTE_MS = 2500;
 constexpr char WIFI_SSID[] = "linksys";
 constexpr char HOSTNAME[] = "esp32sensores";
@@ -23,18 +22,19 @@ uint32_t ultimoReporteMs = 0;
 uint32_t muestraMs = 0;
 uint32_t ultimoReintentoMs = 0;
 uint32_t actividadSonido = 0;
-bool umbralDetectado = false;
 bool sonidoMuestra = false;
 bool hayMuestra = false;
 bool dhtValido = false;
 bool redLista = false;
-int nivelMuestra = HIGH;
+AudioSnapshot audio = {};
 float temperatura = NAN;
 float humedad = NAN;
 
 String readingsJson() {
   String json;
-  json.reserve(260);
+  json.reserve(560);
+  const uint32_t audioAge = audio.ageMs + static_cast<uint32_t>(millis() - muestraMs);
+  const bool audioOk = audio.ok && audioAge <= 5000;
   json = "{\"temperature_c\":";
   json += dhtValido ? String(temperatura, 1) : "null";
   json += ",\"humidity_pct\":";
@@ -42,9 +42,21 @@ String readingsJson() {
   json += ",\"dht_ok\":";
   json += dhtValido ? "true" : "false";
   json += ",\"sound_detected\":";
-  json += sonidoMuestra ? "true" : "false";
-  json += ",\"sound_level\":";
-  json += nivelMuestra;
+  json += (audioOk && sonidoMuestra) ? "true" : "false";
+  json += ",\"sound_source\":\"inmp441\",\"sound_level\":null,\"sound_ok\":";
+  json += audioOk ? "true" : "false";
+  json += ",\"sound_rms\":";
+  json += audioOk ? String(audio.rms, 8) : "null";
+  json += ",\"sound_dbfs\":";
+  json += audioOk ? String(audio.dbfs, 1) : "null";
+  json += ",\"sound_peak_dbfs\":";
+  json += audioOk ? String(audio.peakDbfs, 1) : "null";
+  json += ",\"sound_threshold_dbfs\":";
+  json += String(SOUND_THRESHOLD_DBFS, 1);
+  json += ",\"sound_clipped\":";
+  json += (audioOk && audio.clipped) ? "true" : "false";
+  json += ",\"sound_age_ms\":";
+  json += audioAge;
   json += ",\"sound_activity_count\":";
   json += actividadSonido;
   json += ",\"sample_age_ms\":";
@@ -66,7 +78,7 @@ void sendReadings() {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(PIN_SONIDO_DIGITAL, INPUT);
+  if (!beginMicrophone()) Serial.println("INMP441: fallo de inicializacion I2S.");
   dht.begin();
   ultimoReporteMs = millis();
   WiFi.mode(WIFI_STA);
@@ -76,13 +88,11 @@ void setup() {
   server.on("/", HTTP_GET, sendReadings);
   server.on("/readings", HTTP_GET, sendReadings);
   server.onNotFound([]() { server.send(404, "application/json", "{\"error\":\"Ruta no encontrada\"}"); });
-  Serial.println("Proyecto Loro: ESP32 de sensores, DHT22 GPIO27 y sonido GPIO26");
+  Serial.println("Proyecto Loro: ESP32 de sensores, DHT22 GPIO27 e INMP441 I2S");
   Serial.printf("Conectando a %s. Primera muestra en 2.5 segundos.\n", WIFI_SSID);
 }
 
 void loop() {
-  const int nivel = digitalRead(PIN_SONIDO_DIGITAL);
-  if (nivel == NIVEL_SONIDO_ACTIVO) umbralDetectado = true;
   const uint32_t ahora = millis();
   if ((uint32_t)(ahora - ultimoReporteMs) >= INTERVALO_REPORTE_MS) {
     ultimoReporteMs = ahora;
@@ -90,10 +100,9 @@ void loop() {
     temperatura = dht.readTemperature();
     dhtValido = isfinite(humedad) && isfinite(temperatura)
                 && humedad >= 0 && humedad <= 100 && temperatura >= -40 && temperatura <= 80;
-    sonidoMuestra = umbralDetectado;
+    audio = takeAudioSnapshot();
+    sonidoMuestra = audio.detected;
     if (sonidoMuestra) ++actividadSonido;
-    nivelMuestra = nivel;
-    umbralDetectado = false;
     muestraMs = millis();
     hayMuestra = true;
     Serial.println(readingsJson());

@@ -12,6 +12,17 @@ import { LiveReadingCard } from '@/features/sensors/components/LiveReadingCard'
 import { SensorChart } from '@/features/sensors/components/SensorChart'
 import { useLatestReading } from '@/features/sensors/hooks/useSensorReadings'
 import { formatPercent } from '@/lib/format'
+import type { SensorReading } from '@/types/domain'
+
+function noiseHint(reading?: SensorReading) {
+  if (!reading) return undefined
+  if (reading.soundSource === 'digital') {
+    return 'El sensor solo detecta sí/no; los dBFS se miden al evaluar.'
+  }
+  if (!reading.soundOk) return 'El INMP441 no entrega audio; revisa su cableado.'
+  if (reading.soundClipped) return 'Saturado: el ruido real es mayor que el medido.'
+  return 'Micrófono INMP441 del loro'
+}
 
 export function DashboardPage() {
   const places = usePlaces()
@@ -79,15 +90,13 @@ export function DashboardPage() {
           unavailable={
             reading.isError
               ? 'Sensores sin conexión'
-              : reading.data?.soundDetected
-                ? 'Sonido detectado'
-                : 'Sin sonido fuerte'
+              : reading.data?.soundSource === 'inmp441'
+                ? 'Micrófono sin audio'
+                : reading.data?.soundDetected
+                  ? 'Sonido detectado'
+                  : 'Sin sonido fuerte'
           }
-          hint={
-            reading.data && reading.data.soundDbfs === null
-              ? 'El sensor solo detecta sí/no; los dBFS se miden al evaluar.'
-              : undefined
-          }
+          hint={noiseHint(reading.data)}
           icon={Volume2}
         />
       </div>

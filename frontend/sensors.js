@@ -4,7 +4,7 @@
   let previousSound = null;
 
   function clearValues() {
-    for (const id of ['temperature-value', 'humidity-value', 'sound-value']) select(id).textContent = '—';
+    for (const id of ['temperature-value', 'humidity-value', 'sound-value', 'audio-dbfs']) select(id).textContent = '—';
   }
 
   function status(text, kind) {
@@ -28,15 +28,32 @@
       }
       select('temperature-value').textContent = reading.dht_ok ? number(reading.temperature_c) : '—';
       select('humidity-value').textContent = reading.dht_ok ? number(reading.humidity_pct) : '—';
+      const microphone = reading.sound_source === 'inmp441';
+      const audioOk = !microphone || (reading.sound_ok && reading.sound_age_ms <= 5000);
+      select('audio-level').hidden = !microphone;
+      select('audio-dbfs').textContent = microphone && audioOk ? number(reading.sound_dbfs) : '—';
       const activityBetweenPolls = previousSound !== null
         && reading.uptime_ms >= previousSound.uptime
         && reading.sound_activity_count !== previousSound.count;
-      select('sound-value').textContent = reading.sound_detected || activityBetweenPolls ? 'Detectado' : 'Sin detección';
+      const soundDetected = reading.sound_detected || activityBetweenPolls;
+      select('sound-value').textContent = soundDetected
+        ? (audioOk ? 'Detectado' : 'Detectado antes del fallo')
+        : (!audioOk ? 'Sin señal de audio' : 'Sin detección');
       previousSound = {count: reading.sound_activity_count, uptime: reading.uptime_ms};
-      status(reading.dht_ok ? 'ESP32 conectado' : 'DHT22 sin lectura', reading.dht_ok ? 'ready' : 'warning');
-      select('sensors-note').textContent = reading.dht_ok
-        ? 'Sonido registrado entre actualizaciones. Umbral digital, sin medición de decibeles.'
-        : 'No se pudo leer temperatura y humedad. El sensor de sonido sigue disponible.';
+      const clipped = microphone && audioOk && reading.sound_clipped;
+      const healthy = reading.dht_ok && audioOk && !clipped;
+      const label = !reading.dht_ok && !audioOk ? 'DHT22 y micrófono sin lectura'
+        : !reading.dht_ok ? 'DHT22 sin lectura' : !audioOk ? 'INMP441 sin señal'
+        : clipped ? 'Audio saturado' : 'ESP32 conectado';
+      status(label, healthy ? 'ready' : 'warning');
+      const notes = [];
+      if (!reading.dht_ok) notes.push('No se pudo leer temperatura y humedad.');
+      if (!audioOk) notes.push('Revisa las conexiones I²S y el canal L/R del micrófono.');
+      else if (microphone) {
+        notes.push(`Umbral ${number(reading.sound_threshold_dbfs)} dBFS. Nivel digital, sin calibración SPL.`);
+        if (clipped) notes.push('La señal alcanzó el límite digital.');
+      } else notes.push('Sonido por umbral digital, sin medición de decibeles.');
+      select('sensors-note').textContent = notes.join(' ');
       select('sensors-updated').textContent = `Recibido ${new Date(data.received_at).toLocaleTimeString('es-MX')}`;
     } catch (error) {
       previousSound = null;

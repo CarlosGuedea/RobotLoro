@@ -28,7 +28,10 @@ function readingAt(date: Date): SensorReading {
     temperatureC: round(29.5 + Math.sin(t / 9) * 1.6 + random(-0.3, 0.3)),
     humidityPct: round(55 + Math.sin(t / 15) * 6),
     soundDetected: Math.random() < 0.3,
-    soundDbfs: null,
+    soundDbfs: round(-24 + Math.sin(t / 4) * 6 + random(-1, 1)),
+    soundSource: 'inmp441',
+    soundOk: true,
+    soundClipped: false,
   }
 }
 
@@ -46,8 +49,8 @@ export const mockStudyBotApi: StudyBotApi = {
         {
           key: 'microphone',
           label: 'Sensor de sonido',
-          health: 'degradado',
-          detail: 'Solo detecta sonido sí/no; mide los dBFS desde el dashboard.',
+          health: 'ok',
+          detail: 'INMP441 · −24 dBFS',
         },
         { key: 'model', label: 'Modelo LorBot', health: 'ok', detail: 'Simulado' },
       ],
@@ -92,10 +95,12 @@ export const mockStudyBotApi: StudyBotApi = {
   async createEvaluation({ placeName, notes, temperatureC, soundDbfs, soundSource, photo }) {
     // Lectura de sensores + foto (ESP32-CAM) + inferencia del modelo.
     await delay(2_500)
-    if (soundDbfs === undefined) throw new ApiError(422, 'Falta el ruido en dBFS.')
-    const temperature = temperatureC ?? readingAt(new Date()).temperatureC ?? 30
+    const reading = readingAt(new Date())
+    const noise = soundDbfs ?? reading.soundDbfs
+    if (noise === null) throw new ApiError(422, 'Falta el ruido en dBFS.')
+    const temperature = temperatureC ?? reading.temperatureC ?? 30
     // Regla aproximada SOLO para la maqueta; el veredicto real lo da el modelo LorBot.
-    const verdict = temperature < 33 && soundDbfs < -22 ? 'apto' : 'no_apto'
+    const verdict = temperature < 33 && noise < -22 ? 'apto' : 'no_apto'
     const evaluation: Evaluation = {
       id: `ev-${Date.now()}`,
       photoUrl:
@@ -112,7 +117,11 @@ export const mockStudyBotApi: StudyBotApi = {
           value: round(temperature),
           source: temperatureC === undefined ? 'sensor' : 'manual',
         },
-        { key: 'ruido', value: round(soundDbfs), source: soundSource ?? 'manual' },
+        {
+          key: 'ruido',
+          value: round(noise),
+          source: soundDbfs === undefined ? 'sensor' : (soundSource ?? 'manual'),
+        },
       ],
     }
     evaluations.unshift(evaluation)

@@ -57,10 +57,16 @@ export interface SensorReading {
   /** null si el DHT22 no entrega lectura. */
   temperatureC: number | null
   humidityPct: number | null
-  /** El sensor digital solo indica si hubo sonido por encima de su umbral. */
+  /** Sonido por encima del umbral (INMP441: −35 dBFS; detector digital: su potenciómetro). */
   soundDetected: boolean
-  /** Solo si el firmware tiene un micrófono que mide dBFS. */
+  /** Ruido RMS en dBFS (INMP441). null si el micrófono falla o la placa solo detecta sí/no. */
   soundDbfs: number | null
+  /** `inmp441`: micrófono I²S que mide dBFS; `digital`: detector anterior (KY-038), solo sí/no. */
+  soundSource: 'inmp441' | 'digital'
+  /** Solo INMP441: false si no entrega audio (cableado, señal constante o lectura vieja). */
+  soundOk: boolean | null
+  /** El INMP441 llegó al máximo digital: el ruido real es mayor que el medido. */
+  soundClipped: boolean
 }
 
 export type ComponentHealth = 'ok' | 'degradado' | 'error'

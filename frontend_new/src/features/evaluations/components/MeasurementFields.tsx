@@ -133,9 +133,11 @@ export function MeasurementFields({
             ? 'Escuchando 3 segundos… guarda silencio de tu lado.'
             : value.noise && value.noiseSource === 'microfono'
               ? 'Medido con el micrófono de este dispositivo.'
-              : sensorNoise === null
-                ? 'El sensor del loro solo detecta sí/no: mide con el micrófono o escríbelo.'
-                : 'Vacío = se usa la lectura del sensor.'}
+              : sensorNoise !== null
+                ? 'Vacío = se usa el micrófono INMP441 del loro.'
+                : reading?.soundSource === 'inmp441'
+                  ? 'El INMP441 del loro no entrega audio: mide con este dispositivo o escríbelo.'
+                  : 'El sensor del loro solo detecta sí/no: mide con el micrófono o escríbelo.'}
         </p>
       </div>
 
